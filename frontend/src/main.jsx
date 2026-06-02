@@ -1713,6 +1713,11 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
     setEditMessage("");
   };
 
+  const cancelNodeEditing = () => {
+    setEditing(false);
+    setEditMessage("");
+  };
+
   const startNewNode = () => {
     const node = {
       name: "新建节点",
@@ -2209,7 +2214,6 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
               <div className="panelTitle">
                 <h3>当前地图说明</h3>
                 <span className="cardActions">
-                  <span className="chip">{activeMap?.scaleKind || "地图"}</span>
                   {!mapEditing ? (
                     <button className="ghostButton compactButton" type="button" onClick={startMapEditing} disabled={saving || !activeMap} aria-label="编辑地图信息">
                       <Pencil size={15} />
@@ -2325,24 +2329,17 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
               <div className="panelTitle">
                 <h3>{selectedIsArea ? "选中区域" : "选中节点"}</h3>
                 <span className="cardActions">
-                  <span className="chip">{selectedNode?.type || "未选中"}</span>
-                  {selectedNode ? (
-                    <>
-                      <button
-                        className={editing && draft.id ? "ghostButton compactButton active" : "ghostButton compactButton"}
-                        type="button"
-                        onClick={startEditing}
-                        disabled={saving}
-                        aria-label={selectedIsArea ? "编辑区域" : "编辑节点"}
-                      >
-                        <Pencil size={15} />
-                        编辑
-                      </button>
-                      <button className="dangerButton compactButton" type="button" onClick={deleteSelectedNode} disabled={saving} aria-label={selectedIsArea ? "删除区域" : "删除节点"}>
-                        <Trash2 size={15} />
-                        删除节点
-                      </button>
-                    </>
+                  {selectedNode && !editing ? (
+                    <button
+                      className="ghostButton compactButton"
+                      type="button"
+                      onClick={startEditing}
+                      disabled={saving}
+                      aria-label={selectedIsArea ? "编辑区域" : "编辑节点"}
+                    >
+                      <Pencil size={15} />
+                      编辑
+                    </button>
                   ) : null}
                 </span>
               </div>
@@ -2392,14 +2389,6 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                       </div>
                     ) : null}
                     <div className="kv">
-                      <span>类型</span>
-                      {editing && draft.id ? (
-                        <input className="mapInlineInput" value={draft.type} onChange={(event) => setDraftField("type", event.target.value)} />
-                      ) : (
-                        <div>{selectedNode.type || "未记录"}</div>
-                      )}
-                    </div>
-                    <div className="kv">
                       <span>{selectedIsArea ? "所属势力" : "所属范围"}</span>
                       {editing && draft.id ? (
                         <input className="mapInlineInput" value={draft.faction} onChange={(event) => setDraftField("faction", event.target.value)} />
@@ -2434,12 +2423,6 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                     ) : null}
                     {editing && draft.id ? (
                       <div className="kv">
-                        <span>层级 / 地图</span>
-                        <input className="mapInlineInput" value={draft.layer} onChange={(event) => setDraftField("layer", event.target.value)} />
-                      </div>
-                    ) : null}
-                    {editing && draft.id ? (
-                      <div className="kv">
                         <span>显示方式</span>
                         <select className="mapInlineInput" value={draft.shape} onChange={(event) => setDraftField("shape", event.target.value)}>
                           <option value="point">点位</option>
@@ -2468,7 +2451,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                     </div>
                   </div>
                   <div className="tags">
-                    {[selectedNode.type, selectedNode.layer, normalizeNodeShape(selectedNode.shape) === "polygon" ? "范围" : "点位"]
+                    {[selectedNode.layer, normalizeNodeShape(selectedNode.shape) === "polygon" ? "范围" : "点位"]
                       .filter(Boolean)
                       .map((tag) => (
                         <span className="tag" key={`${selectedNode.id}-${tag}`}>
@@ -2478,7 +2461,11 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                   </div>
                   {editing && draft.id ? (
                     <div className="saveBar inlineSaveBar">
-                      <button className="ghostButton" type="button" onClick={() => setEditing(false)} disabled={saving}>
+                      <button className="dangerButton" type="button" onClick={deleteSelectedNode} disabled={saving} aria-label={selectedIsArea ? "删除区域" : "删除节点"}>
+                        <Trash2 size={16} />
+                        {selectedIsArea ? "删除区域" : "删除节点"}
+                      </button>
+                      <button className="ghostButton" type="button" onClick={cancelNodeEditing} disabled={saving}>
                         取消
                       </button>
                       <button className="saveButton" type="button" onClick={saveDraft} disabled={saving || !draft.name.trim()}>
@@ -2505,10 +2492,6 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                   <input value={draft.name} onChange={(event) => setDraftField("name", event.target.value)} />
                 </label>
                 <label>
-                  <span>类型</span>
-                  <input value={draft.type} onChange={(event) => setDraftField("type", event.target.value)} placeholder="地点 / 城市 / 区域 / 设施 / 其他" />
-                </label>
-                <label>
                   <span>显示方式</span>
                   <select value={draft.shape} onChange={(event) => setDraftField("shape", event.target.value)}>
                     <option value="point">点位</option>
@@ -2518,10 +2501,6 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                 <label>
                   <span>所属势力（可选）</span>
                   <input value={draft.faction} onChange={(event) => setDraftField("faction", event.target.value)} placeholder="没有就留空" />
-                </label>
-                <label>
-                  <span>层级 / 地图</span>
-                  <input value={draft.layer} onChange={(event) => setDraftField("layer", event.target.value)} />
                 </label>
                 <label>
                   <span>横向坐标 x</span>
@@ -2547,13 +2526,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                 </label>
               </div>
               <div className="saveBar">
-                {draft.id ? (
-                  <button className="dangerButton" type="button" onClick={deleteSelectedNode} disabled={saving}>
-                    <Trash2 size={16} />
-                    删除节点
-                  </button>
-                ) : null}
-                <button className="ghostButton" type="button" onClick={() => setEditing(false)} disabled={saving}>
+                <button className="ghostButton" type="button" onClick={cancelNodeEditing} disabled={saving}>
                   取消
                 </button>
                 <button className="saveButton" type="button" onClick={saveDraft} disabled={saving || !draft.name.trim()}>

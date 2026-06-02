@@ -617,7 +617,7 @@ describe("MapWorkspace", () => {
           id: 31,
           map_image_id: 12,
           name: "青岚洲",
-          type: "区域",
+          type: "secret_realm",
           shape: "polygon",
           layer: "世界",
           faction: "青岚盟",
@@ -647,8 +647,11 @@ describe("MapWorkspace", () => {
     expect(screen.getByText("选中区域")).toBeInTheDocument();
     expect(screen.getByText("顶点 1: x 8，y 22")).toBeInTheDocument();
     expect(screen.getByText("顶点 2: x 32，y 12")).toBeInTheDocument();
+    expect(screen.queryByText("secret_realm")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "删除区域" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "编辑区域" }));
+    expect(screen.getByRole("button", { name: "删除区域" })).toBeInTheDocument();
     fireEvent.change(screen.getByDisplayValue("青岚洲"), { target: { value: "青岚古洲" } });
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
@@ -1021,9 +1024,44 @@ describe("MapWorkspace", () => {
     expect(screen.getByLabelText("节点名称")).toBeInTheDocument();
     expect(screen.getByLabelText("显示方式")).toBeInTheDocument();
     expect(screen.getByLabelText("所属势力（可选）")).toBeInTheDocument();
+    expect(screen.queryByLabelText("类型")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("层级 / 地图")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("位面 / 分区")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("上级 / 父级")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("形状")).not.toBeInTheDocument();
+  });
+
+  it("clears the new-node message when cancelling node creation", () => {
+    const world = {
+      map_images: [
+        {
+          id: 12,
+          title: "四域总览",
+          layer: "世界",
+          scale_kind: "总览",
+        },
+      ],
+      map_nodes: [],
+    };
+
+    render(
+      <MapWorkspace
+        world={world}
+        saving={false}
+        onSaveNode={vi.fn()}
+        onDeleteNode={vi.fn()}
+        onDeleteMap={vi.fn()}
+        onSaveMap={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /新增节点/ }));
+    expect(screen.getByText("正在新增节点")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+
+    expect(screen.queryByText("正在新增节点")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("节点名称")).not.toBeInTheDocument();
   });
 
   it("keeps empty image data empty for update payloads", () => {

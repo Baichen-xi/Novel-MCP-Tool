@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, ImagePlus, Layers3, Map as MapIcon, Plus, RefreshCw, Shield, Trash2, Upload, UserRound } from "lucide-react";
+import { BookOpen, ImagePlus, Layers3, Map as MapIcon, Pencil, Plus, RefreshCw, Shield, Trash2, Upload, UserRound } from "lucide-react";
 import "./styles.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8765";
@@ -1563,18 +1563,18 @@ function PowerSystemWorkspace({ powerSystem, saving, onSave }) {
 }
 
 function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, onSaveMap, onUpdateMap = async () => null }) {
-  const maps = useMemo(() => buildMapAtlas(world), [world]);
+  const baseMaps = useMemo(() => buildMapAtlas(world), [world]);
   const viewportRef = useRef(null);
   const jsonInputRef = useRef(null);
   const toolbarImageInputRef = useRef(null);
   const mapImageEditPanelRef = useRef(null);
   const dragRef = useRef(null);
   const wheelHandlerRef = useRef(null);
-  const [selectedMapId, setSelectedMapId] = useState(maps[0]?.id || "");
+  const [selectedMapId, setSelectedMapId] = useState(baseMaps[0]?.id || "");
   const [selectedNodeId, setSelectedNodeId] = useState("");
   const [camera, setCamera] = useState({ x: 0, y: 0, w: MAP_SCENE.width, h: MAP_SCENE.height });
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(() => mapNodeDraft({}, maps[0]));
+  const [draft, setDraft] = useState(() => mapNodeDraft({}, baseMaps[0]));
   const [editMessage, setEditMessage] = useState("");
   const [mapEditing, setMapEditing] = useState(false);
   const [mapDraft, setMapDraft] = useState(() => mapImageDraft());
@@ -1582,6 +1582,34 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
   const [showAreas, setShowAreas] = useState(true);
   const [showRoutes, setShowRoutes] = useState(true);
   const [showNodes, setShowNodes] = useState(true);
+  const draftMapId = "draft-new-map";
+
+  const maps = useMemo(() => {
+    if (!mapEditing || mapDraft.image_id || selectedMapId !== draftMapId) {
+      return baseMaps;
+    }
+    return [
+      ...baseMaps,
+      {
+        id: draftMapId,
+        imageId: null,
+        title: mapDraft.title || "新建地图",
+        layer: mapDraft.layer || mapDraft.scale_kind || "世界",
+        parentName: mapDraft.parent_name || "",
+        scaleKind: mapDraft.scale_kind || "世界",
+        scope: mapDraft.scope || "",
+        summary: mapDraft.notes || mapDraft.scope || "正在编辑新地图。",
+        realWidth: numberOr(mapDraft.real_width, 0),
+        realHeight: numberOr(mapDraft.real_height, 0),
+        distanceUnit: mapDraft.distance_unit || "里",
+        scaleLabel: mapDraft.scale_label || "",
+        mimeType: mapDraft.mime_type || "image/png",
+        imageData: mapDraft.image_data || "",
+        imageSrc: mapImageSource({ image_data: mapDraft.image_data, mime_type: mapDraft.mime_type }),
+        nodes: [],
+      },
+    ];
+  }, [baseMaps, mapDraft, mapEditing, selectedMapId]);
 
   const activeMap = useMemo(() => maps.find((map) => map.id === selectedMapId) || maps[0], [maps, selectedMapId]);
   const nodes = activeMap?.nodes || [];
@@ -1707,10 +1735,38 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
   };
 
   const startNewMap = () => {
-    setMapDraft(mapImageDraft({ title: "新建地图", layer: activeMap?.layer || "世界", scaleKind: activeMap?.scaleKind || "世界" }));
+    setMapDraft(mapImageDraft({ title: "新建地图", layer: "世界", scaleKind: "世界" }));
+    setSelectedMapId(draftMapId);
     setMapEditing(true);
     setEditing(false);
-    setMapEditMessage("可只创建空地图，也可选择图片后导入。");
+    setMapEditMessage("正在新建地图，可先填写资料，也可选择图片。");
+  };
+
+  const selectMap = (mapId) => {
+    setSelectedMapId(mapId);
+    setEditing(false);
+    if (mapId !== selectedMapId) {
+      setMapEditing(false);
+      setMapEditMessage("");
+      setMapDraft(mapImageDraft());
+    }
+  };
+
+  const startMapEditing = () => {
+    setMapDraft(mapImageDraft(activeMap || { title: "新建地图", layer: "世界", scaleKind: "世界" }));
+    setMapEditing(true);
+    setEditing(false);
+    setMapEditMessage(activeMap?.imageId ? "正在编辑当前地图资料。" : "这是一组未绑定图片的地图资料，保存后会生成正式地图卡片。");
+  };
+
+  const cancelMapEditing = () => {
+    const wasNewMapDraft = selectedMapId === draftMapId && !mapDraft.image_id;
+    setMapEditing(false);
+    setMapEditMessage("");
+    setMapDraft(mapImageDraft());
+    if (wasNewMapDraft) {
+      setSelectedMapId(baseMaps[0]?.id || "");
+    }
   };
 
   const startImportMapImage = () => {
@@ -1765,7 +1821,8 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
   };
 
   const saveMapDraft = async () => {
-    const shouldBindCurrentGroup = !mapDraft.image_id && !activeMap?.imageId && nodes.length > 0;
+    const isDraftNewMap = selectedMapId === draftMapId && !mapDraft.image_id;
+    const shouldBindCurrentGroup = !isDraftNewMap && !mapDraft.image_id && !activeMap?.imageId && nodes.length > 0;
     const savedMap = mapDraft.image_id ? await onUpdateMap(mapDraft.image_id, mapDraft, "浏览器导入或替换地图图片") : await onSaveMap(mapDraft);
     if (savedMap?.id) {
       if (shouldBindCurrentGroup) {
@@ -1957,7 +2014,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
               key={map.id}
               type="button"
               className={map.id === activeMap?.id ? "characterItem mapAtlasItem active" : "characterItem mapAtlasItem"}
-              onClick={() => setSelectedMapId(map.id)}
+              onClick={() => selectMap(map.id)}
             >
               <span className="mapAtlasChips">
                 {mapCardTags(map).map((tag) => (
@@ -2018,9 +2075,6 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
               <input ref={toolbarImageInputRef} className="hiddenFileInput" type="file" accept="image/*" onChange={handleToolbarMapFileChange} />
               <button className="ghostButton" type="button" onClick={exportActiveMapJson} disabled={saving || !activeMap}>
                 导出JSON
-              </button>
-              <button className={editing ? "dangerButton mapEditButton active" : "dangerButton mapEditButton"} type="button" onClick={startEditing} disabled={saving}>
-                编辑
               </button>
               {hasMapImage ? (
                 <button className="ghostButton mapClearImageButton" type="button" onClick={clearActiveMapImage} disabled={saving}>
@@ -2150,120 +2204,147 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
         </article>
 
         <article className="editorCard mapDetailCard">
-          {mapEditing ? (
-            <section className="mapEditPanel mapImageEditPanel" ref={mapImageEditPanelRef}>
-              <div className="sectionHeader">
-                <h3>手动添加地图</h3>
-                <p>{mapEditMessage || "地图会直接保存到当前作品的世界图册。"}</p>
-              </div>
-              <div className="fieldGrid detailGrid">
-                <label>
-                  <span>地图名称</span>
-                  <input value={mapDraft.title} onChange={(event) => setMapDraftField("title", event.target.value)} placeholder="如：东玄道域局部图" />
-                </label>
-                <label>
-                  <span>层级</span>
-                  <select value={mapDraft.scale_kind} onChange={(event) => setMapDraftField("scale_kind", event.target.value)}>
-                    {mapScaleKinds.map((kind) => (
-                      <option key={kind} value={kind}>
-                        {kind}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  <span>图册分类</span>
-                  <input value={mapDraft.layer} onChange={(event) => setMapDraftField("layer", event.target.value)} placeholder="世界 / 区域 / 城市 / 宗门" />
-                </label>
-                <label>
-                  <span>上级地图</span>
-                  <input value={mapDraft.parent_name} onChange={(event) => setMapDraftField("parent_name", event.target.value)} placeholder="如：大千世界" />
-                </label>
-                <label>
-                  <span>横向范围</span>
-                  <input type="number" min="0" step="1" value={mapDraft.real_width} onChange={(event) => setMapDraftField("real_width", event.target.value)} />
-                </label>
-                <label>
-                  <span>纵向范围</span>
-                  <input type="number" min="0" step="1" value={mapDraft.real_height} onChange={(event) => setMapDraftField("real_height", event.target.value)} />
-                </label>
-                <label>
-                  <span>距离单位</span>
-                  <input value={mapDraft.distance_unit} onChange={(event) => setMapDraftField("distance_unit", event.target.value)} placeholder="里 / 万里 / 公里 / 光年" />
-                </label>
-                <label>
-                  <span>标度文字</span>
-                  <input value={mapDraft.scale_label} onChange={(event) => setMapDraftField("scale_label", event.target.value)} placeholder="可选，如：1 格 = 10 万里" />
-                </label>
-                <label className="spanTwo">
-                  <span>地图范围说明</span>
-                  <input value={mapDraft.scope} onChange={(event) => setMapDraftField("scope", event.target.value)} placeholder="如：东玄道域局部区域" />
-                </label>
-                <label className="spanTwo">
-                  <span>导入图片</span>
-                  <span className="mapUploadBox">
-                    <Upload size={18} />
-                    <strong>{mapDraft.file_name || "选择本地图片"}</strong>
-                    <small>不选图片时会创建一张空白地图，后续仍可添加节点和区域。</small>
-                    <input type="file" accept="image/*" onChange={handleMapFileChange} />
-                  </span>
-                </label>
-                {mapDraft.image_data ? (
-                  <div className="mapImagePreview spanTwo">
-                    <img src={mapDraft.image_data} alt="地图预览" />
-                    <span>{mapDraft.mime_type}</span>
-                  </div>
-                ) : null}
-                <label className="spanTwo">
-                  <span>说明</span>
-                  <textarea value={mapDraft.notes} onChange={(event) => setMapDraftField("notes", event.target.value)} placeholder="写这张地图展示的范围、用途和注意事项。" />
-                </label>
-              </div>
-              <div className="saveBar">
-                <button className="ghostButton" type="button" onClick={() => setMapEditing(false)} disabled={saving}>
-                  取消
-                </button>
-                <button className="saveButton" type="button" onClick={saveMapDraft} disabled={saving || !mapDraft.title.trim()}>
-                  保存地图
-                </button>
-              </div>
-            </section>
-          ) : null}
-
           <div className="mapInfoGrid">
-            <section className="mapInfoCard">
+            <section className={mapEditing ? "mapInfoCard mapImageEditPanel editing" : "mapInfoCard"} ref={mapEditing ? mapImageEditPanelRef : null}>
               <div className="panelTitle">
                 <h3>当前地图说明</h3>
-                <span className="chip">{activeMap?.scaleKind || "地图"}</span>
+                <span className="cardActions">
+                  <span className="chip">{activeMap?.scaleKind || "地图"}</span>
+                  {!mapEditing ? (
+                    <button className="ghostButton compactButton" type="button" onClick={startMapEditing} disabled={saving || !activeMap} aria-label="编辑地图信息">
+                      <Pencil size={15} />
+                      编辑
+                    </button>
+                  ) : null}
+                </span>
               </div>
-              <p className="note">{activeMap?.summary || "当前地图还没有说明。"}</p>
-              <div className="keyValueList">
-                <div className="kv">
-                  <span>地图名称</span>
-                  <strong>{displayMapTitle(activeMap)}</strong>
-                </div>
-                <div className="kv">
-                  <span>真实尺度</span>
-                  <strong>
-                    {mapExtentLabel(activeMap)}
-                    {activeMap?.realWidth && activeMap?.realHeight ? `（${mapAreaLabel(activeMap)}）` : ""}
-                  </strong>
-                </div>
-                <div className="kv">
-                  <span>图层提示</span>
-                  <div>
-                    {[activeMap?.layer, activeMap?.scope, `当前层级显示 ${nodes.length} 个节点`, polygonNodes.length ? `${polygonNodes.length} 个范围` : ""]
-                      .filter(Boolean)
-                      .join("、")}
+              {mapEditing ? (
+                <>
+                  {mapEditMessage ? <p className="inlineSaveNotice">{mapEditMessage}</p> : null}
+                  <div className="fieldGrid detailGrid compactMapForm">
+                    <label>
+                      <span>地图名称</span>
+                      <input value={mapDraft.title} onChange={(event) => setMapDraftField("title", event.target.value)} placeholder="如：东玄道域局部图" />
+                    </label>
+                    <label>
+                      <span>层级</span>
+                      <select value={mapDraft.scale_kind} onChange={(event) => setMapDraftField("scale_kind", event.target.value)}>
+                        {mapScaleKinds.map((kind) => (
+                          <option key={kind} value={kind}>
+                            {kind}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>图册分类</span>
+                      <input value={mapDraft.layer} onChange={(event) => setMapDraftField("layer", event.target.value)} placeholder="世界 / 区域 / 城市" />
+                    </label>
+                    <label>
+                      <span>上级地图</span>
+                      <input value={mapDraft.parent_name} onChange={(event) => setMapDraftField("parent_name", event.target.value)} placeholder="可选" />
+                    </label>
+                    <label>
+                      <span>横向范围</span>
+                      <input type="number" min="0" step="1" value={mapDraft.real_width} onChange={(event) => setMapDraftField("real_width", event.target.value)} />
+                    </label>
+                    <label>
+                      <span>纵向范围</span>
+                      <input type="number" min="0" step="1" value={mapDraft.real_height} onChange={(event) => setMapDraftField("real_height", event.target.value)} />
+                    </label>
+                    <label>
+                      <span>距离单位</span>
+                      <input value={mapDraft.distance_unit} onChange={(event) => setMapDraftField("distance_unit", event.target.value)} placeholder="里 / 万里 / 公里" />
+                    </label>
+                    <label>
+                      <span>标度文字</span>
+                      <input value={mapDraft.scale_label} onChange={(event) => setMapDraftField("scale_label", event.target.value)} placeholder="可选，如：1 格 = 10 万里" />
+                    </label>
+                    <label className="spanTwo">
+                      <span>地图范围说明</span>
+                      <input value={mapDraft.scope} onChange={(event) => setMapDraftField("scope", event.target.value)} placeholder="这张地图覆盖的区域" />
+                    </label>
+                    <label className="spanTwo">
+                      <span>导入图片</span>
+                      <span className="mapUploadBox">
+                        <Upload size={18} />
+                        <strong>{mapDraft.file_name || (mapDraft.image_data ? "已有地图图片" : "选择本地图片")}</strong>
+                        <small>图片只作为背景，节点、区域和 JSON 数据都会保留。</small>
+                        <input type="file" accept="image/*" onChange={handleMapFileChange} />
+                      </span>
+                    </label>
+                    {mapDraft.image_data ? (
+                      <div className="mapImagePreview spanTwo">
+                        <img src={mapDraft.image_data} alt="地图预览" />
+                        <span>{mapDraft.mime_type}</span>
+                      </div>
+                    ) : null}
+                    <label className="spanTwo">
+                      <span>说明</span>
+                      <textarea value={mapDraft.notes} onChange={(event) => setMapDraftField("notes", event.target.value)} placeholder="写这张地图展示的范围、用途和注意事项。" />
+                    </label>
                   </div>
-                </div>
-              </div>
+                  <div className="saveBar inlineSaveBar">
+                    <button className="ghostButton" type="button" onClick={cancelMapEditing} disabled={saving}>
+                      取消
+                    </button>
+                    <button className="saveButton" type="button" onClick={saveMapDraft} disabled={saving || !mapDraft.title.trim()}>
+                      保存地图
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="note">{activeMap?.summary || "当前地图还没有说明。"}</p>
+                  <div className="keyValueList">
+                    <div className="kv">
+                      <span>地图名称</span>
+                      <strong>{displayMapTitle(activeMap)}</strong>
+                    </div>
+                    <div className="kv">
+                      <span>真实尺度</span>
+                      <strong>
+                        {mapExtentLabel(activeMap)}
+                        {activeMap?.realWidth && activeMap?.realHeight ? `（${mapAreaLabel(activeMap)}）` : ""}
+                      </strong>
+                    </div>
+                    <div className="kv">
+                      <span>图层提示</span>
+                      <div>
+                        {[activeMap?.layer, activeMap?.scope, `当前层级显示 ${nodes.length} 个节点`, polygonNodes.length ? `${polygonNodes.length} 个范围` : ""]
+                          .filter(Boolean)
+                          .join("、")}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </section>
 
             <section className={editing && draft.id ? "mapInfoCard editing" : "mapInfoCard"}>
               <div className="panelTitle">
                 <h3>{selectedIsArea ? "选中区域" : "选中节点"}</h3>
-                <span className="chip">{selectedNode?.type || "未选中"}</span>
+                <span className="cardActions">
+                  <span className="chip">{selectedNode?.type || "未选中"}</span>
+                  {selectedNode ? (
+                    <>
+                      <button
+                        className={editing && draft.id ? "ghostButton compactButton active" : "ghostButton compactButton"}
+                        type="button"
+                        onClick={startEditing}
+                        disabled={saving}
+                        aria-label={selectedIsArea ? "编辑区域" : "编辑节点"}
+                      >
+                        <Pencil size={15} />
+                        编辑
+                      </button>
+                      <button className="dangerButton compactButton" type="button" onClick={deleteSelectedNode} disabled={saving} aria-label={selectedIsArea ? "删除区域" : "删除节点"}>
+                        <Trash2 size={15} />
+                        删除节点
+                      </button>
+                    </>
+                  ) : null}
+                </span>
               </div>
               {editMessage && !editing ? <p className="inlineSaveNotice">{editMessage}</p> : null}
               {selectedNode ? (
@@ -2359,23 +2440,11 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                     ) : null}
                     {editing && draft.id ? (
                       <div className="kv">
-                        <span>上级 / 父级</span>
-                        <input className="mapInlineInput" value={draft.parent_name} onChange={(event) => setDraftField("parent_name", event.target.value)} />
-                      </div>
-                    ) : null}
-                    {editing && draft.id ? (
-                      <div className="kv">
-                        <span>形状</span>
+                        <span>显示方式</span>
                         <select className="mapInlineInput" value={draft.shape} onChange={(event) => setDraftField("shape", event.target.value)}>
                           <option value="point">点位</option>
                           <option value="polygon">范围多边形</option>
                         </select>
-                      </div>
-                    ) : null}
-                    {editing && draft.id ? (
-                      <div className="kv">
-                        <span>位面 / 分区</span>
-                        <input className="mapInlineInput" value={draft.plane} onChange={(event) => setDraftField("plane", event.target.value)} />
                       </div>
                     ) : null}
                     {editing && draft.id && draft.shape === "polygon" && !selectedIsArea ? (
@@ -2437,26 +2506,22 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                 </label>
                 <label>
                   <span>类型</span>
-                  <input value={draft.type} onChange={(event) => setDraftField("type", event.target.value)} placeholder="区域 / 城市 / 宗门 / 避难所" />
+                  <input value={draft.type} onChange={(event) => setDraftField("type", event.target.value)} placeholder="地点 / 城市 / 区域 / 设施 / 其他" />
                 </label>
                 <label>
-                  <span>形状</span>
+                  <span>显示方式</span>
                   <select value={draft.shape} onChange={(event) => setDraftField("shape", event.target.value)}>
                     <option value="point">点位</option>
                     <option value="polygon">范围多边形</option>
                   </select>
                 </label>
                 <label>
-                  <span>所属势力</span>
-                  <input value={draft.faction} onChange={(event) => setDraftField("faction", event.target.value)} />
+                  <span>所属势力（可选）</span>
+                  <input value={draft.faction} onChange={(event) => setDraftField("faction", event.target.value)} placeholder="没有就留空" />
                 </label>
                 <label>
                   <span>层级 / 地图</span>
                   <input value={draft.layer} onChange={(event) => setDraftField("layer", event.target.value)} />
-                </label>
-                <label>
-                  <span>位面 / 分区</span>
-                  <input value={draft.plane} onChange={(event) => setDraftField("plane", event.target.value)} />
                 </label>
                 <label>
                   <span>横向坐标 x</span>
@@ -2465,10 +2530,6 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                 <label>
                   <span>纵向坐标 y</span>
                   <input type="number" min="0" max="100" step="0.1" value={draft.y} onChange={(event) => setDraftField("y", event.target.value)} />
-                </label>
-                <label className="spanTwo">
-                  <span>上级 / 父级</span>
-                  <input value={draft.parent_name} onChange={(event) => setDraftField("parent_name", event.target.value)} />
                 </label>
                 {draft.shape === "polygon" ? (
                   <label className="spanTwo">

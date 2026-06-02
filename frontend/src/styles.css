@@ -282,6 +282,27 @@ textarea:focus-visible {
   line-height: 1.2;
 }
 
+.cardActions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.compactButton {
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 9px;
+  font-size: 13px;
+}
+
+.compactButton.active {
+  color: #6f3b31;
+  background: #f4dfd8;
+  border-color: #c98d7d;
+}
+
 .countBadge {
   display: inline-flex;
   align-items: center;
@@ -1443,6 +1464,10 @@ textarea:focus-visible {
 .mapImageEditPanel {
   background: linear-gradient(180deg, #f8f4eb, #efe3d4);
   border-color: rgba(111, 134, 98, 0.38);
+}
+
+.compactMapForm {
+  gap: 10px;
 }
 
 .mapUploadBox {

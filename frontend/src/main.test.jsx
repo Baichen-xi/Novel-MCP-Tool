@@ -648,7 +648,7 @@ describe("MapWorkspace", () => {
     expect(screen.getByText("顶点 1: x 8，y 22")).toBeInTheDocument();
     expect(screen.getByText("顶点 2: x 32，y 12")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    fireEvent.click(screen.getByRole("button", { name: "编辑区域" }));
     fireEvent.change(screen.getByDisplayValue("青岚洲"), { target: { value: "青岚古洲" } });
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
@@ -918,6 +918,7 @@ describe("MapWorkspace", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /新建地图/ }));
+    expect(screen.getByRole("button", { name: /新建地图.*未设定面积/ })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("地图名称"), { target: { value: "澄江市旧城区" } });
     fireEvent.change(screen.getByLabelText("层级"), { target: { value: "城市" } });
     fireEvent.change(screen.getByLabelText("图册分类"), { target: { value: "城市" } });
@@ -941,6 +942,88 @@ describe("MapWorkspace", () => {
         })
       );
     });
+  });
+
+  it("edits map metadata from the current map description card", async () => {
+    const onUpdateMap = vi.fn().mockResolvedValue({ id: 12 });
+    const world = {
+      map_images: [
+        {
+          id: 12,
+          title: "东玄道域",
+          layer: "区域",
+          scale_kind: "区域",
+          real_width: 800,
+          real_height: 600,
+          distance_unit: "万里",
+          notes: "东玄道域旧说明。",
+        },
+      ],
+      map_nodes: [],
+    };
+
+    render(
+      <MapWorkspace
+        world={world}
+        saving={false}
+        onSaveNode={vi.fn()}
+        onDeleteNode={vi.fn()}
+        onDeleteMap={vi.fn()}
+        onSaveMap={vi.fn()}
+        onUpdateMap={onUpdateMap}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑地图信息" }));
+    fireEvent.change(screen.getByLabelText("地图名称"), { target: { value: "东玄道域详图" } });
+    fireEvent.change(screen.getByLabelText("说明"), { target: { value: "重修后的道域资料。" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存地图" }));
+
+    await waitFor(() => {
+      expect(onUpdateMap).toHaveBeenCalledWith(
+        12,
+        expect.objectContaining({
+          image_id: 12,
+          title: "东玄道域详图",
+          notes: "重修后的道域资料。",
+        }),
+        "浏览器导入或替换地图图片"
+      );
+    });
+  });
+
+  it("keeps the new node form focused on essential fields", () => {
+    const world = {
+      map_images: [
+        {
+          id: 12,
+          title: "四域总览",
+          layer: "世界",
+          scale_kind: "总览",
+        },
+      ],
+      map_nodes: [],
+    };
+
+    render(
+      <MapWorkspace
+        world={world}
+        saving={false}
+        onSaveNode={vi.fn()}
+        onDeleteNode={vi.fn()}
+        onDeleteMap={vi.fn()}
+        onSaveMap={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /新增节点/ }));
+
+    expect(screen.getByLabelText("节点名称")).toBeInTheDocument();
+    expect(screen.getByLabelText("显示方式")).toBeInTheDocument();
+    expect(screen.getByLabelText("所属势力（可选）")).toBeInTheDocument();
+    expect(screen.queryByLabelText("位面 / 分区")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("上级 / 父级")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("形状")).not.toBeInTheDocument();
   });
 
   it("keeps empty image data empty for update payloads", () => {

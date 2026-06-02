@@ -1391,6 +1391,7 @@ textarea:focus-visible {
 
 .mapInfoCard {
   display: grid;
+  align-content: start;
   gap: 12px;
   padding: 16px;
   background: linear-gradient(180deg, #fbf8f1, #f4ede3);

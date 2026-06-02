@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+
+# Local data
+backend/data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Backend build artifacts
+backend/build/
+backend/dist/
+
+# Tauri/Rust
+frontend/src-tauri/target/
+archive/**/target/
+archive/**/backend-build/
+archive/**/.pytest_cache/
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

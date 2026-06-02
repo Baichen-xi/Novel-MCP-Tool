@@ -1,0 +1,1 @@
+"""Novel cockpit backend package."""

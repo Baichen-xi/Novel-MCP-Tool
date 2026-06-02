@@ -1,0 +1,1994 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>世界图册示意页</title>
+    <style>
+      :root {
+        --bg: #f4efe6;
+        --paper: #fbf7ef;
+        --paper-2: #f6efe3;
+        --line: #d8cab7;
+        --line-soft: #e9dfd1;
+        --text: #2e2418;
+        --muted: #6d5d4b;
+        --accent: #6f8662;
+        --accent-2: #8e6c4b;
+        --accent-3: #6d7ea4;
+        --danger: #9a5f52;
+        --shadow: 0 18px 42px rgba(72, 54, 31, 0.11);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        min-height: 100%;
+        margin: 0;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.45), transparent 32%),
+          radial-gradient(circle at 78% 8%, rgba(145, 167, 206, 0.14), transparent 22%),
+          linear-gradient(180deg, #f8f3ea, #efe5d7);
+        font-family: "KaiTi", "STKaiti", "Songti SC", "SimSun", serif;
+        text-rendering: optimizeLegibility;
+      }
+
+      body {
+        padding: 28px;
+      }
+
+      button,
+      input,
+      textarea {
+        font: inherit;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      button:focus-visible {
+        outline: 3px solid rgba(111, 134, 98, 0.34);
+        outline-offset: 2px;
+      }
+
+      .page {
+        max-width: 1540px;
+        margin: 0 auto;
+      }
+
+      .header {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+
+      .eyebrow {
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 34px;
+        line-height: 1.12;
+        font-weight: 700;
+      }
+
+      .subtitle {
+        max-width: 78ch;
+        margin: 0;
+        color: var(--muted);
+        font-size: 17px;
+        line-height: 1.82;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-columns: 330px minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+
+      .panel {
+        background: rgba(251, 247, 239, 0.96);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+      }
+
+      .sidebar {
+        display: grid;
+        gap: 14px;
+        padding: 16px;
+        position: sticky;
+        top: 16px;
+      }
+
+      .panelHead {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .panelHead h2,
+      .panelHead h3 {
+        margin: 0;
+        font-size: 18px;
+        line-height: 1.2;
+      }
+
+      .countBadge,
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: var(--paper-2);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .atlasList {
+        display: grid;
+        gap: 10px;
+      }
+
+      .atlasCard {
+        display: grid;
+        gap: 8px;
+        width: 100%;
+        padding: 13px 13px 12px;
+        text-align: left;
+        color: var(--text);
+        background: linear-gradient(180deg, #fcfaf4, #f5ede0);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        transition:
+          transform 0.14s ease,
+          background 0.14s ease,
+          border-color 0.14s ease,
+          box-shadow 0.14s ease;
+      }
+
+      .atlasCard:hover {
+        transform: translateY(-1px);
+        border-color: #cdbca6;
+        box-shadow: 0 10px 22px rgba(73, 52, 28, 0.08);
+      }
+
+      .atlasCard.active {
+        background: linear-gradient(180deg, #f4f8f2, #ecf2e5);
+        border-color: rgba(111, 134, 98, 0.65);
+        box-shadow: inset 0 0 0 1px rgba(111, 134, 98, 0.1);
+      }
+
+      .atlasCard strong {
+        font-size: 18px;
+        line-height: 1.2;
+      }
+
+      .atlasMeta,
+      .atlasCard small {
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .atlasMeta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .atlasFooter {
+        display: grid;
+        gap: 8px;
+        padding-top: 4px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.65;
+      }
+
+      .viewer {
+        display: grid;
+        gap: 14px;
+        min-width: 0;
+      }
+
+      .viewerTop {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        padding: 16px 18px;
+      }
+
+      .viewerTop h2 {
+        margin: 0;
+        font-size: 28px;
+        line-height: 1.18;
+      }
+
+      .viewerTop p {
+        margin: 8px 0 0;
+        max-width: 72ch;
+        color: var(--muted);
+        line-height: 1.72;
+      }
+
+      .metaStack {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .toolButton {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 36px;
+        padding: 0 13px;
+        color: var(--text);
+        background: var(--paper);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        font-weight: 700;
+      }
+
+      .toolButton.active {
+        color: #fff;
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+
+      .editMapButton {
+        color: #fff;
+        background: var(--danger);
+        border-color: var(--danger);
+      }
+
+      .editMapButton.active {
+        background: #7f4a40;
+        border-color: #7f4a40;
+      }
+
+      .mapPanel {
+        display: grid;
+        gap: 14px;
+        padding: 16px;
+      }
+
+      .viewport {
+        position: relative;
+        overflow: hidden;
+        aspect-ratio: 16 / 10;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0)),
+          linear-gradient(135deg, #f3ebdd, #e7dac7);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+        user-select: none;
+      }
+
+      .viewport::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0));
+        opacity: 0.55;
+        pointer-events: none;
+      }
+
+      .viewport::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at 20% 18%, rgba(255, 255, 255, 0.4), transparent 24%),
+          radial-gradient(circle at 82% 76%, rgba(255, 255, 255, 0.28), transparent 18%);
+        pointer-events: none;
+      }
+
+      .mapStage {
+        position: absolute;
+        inset: 0;
+        touch-action: none;
+        cursor: grab;
+      }
+
+      .mapStage.dragging {
+        cursor: grabbing;
+      }
+
+      .viewBoxLayer {
+        width: 100%;
+        height: 100%;
+      }
+
+      .mapBackdrop {
+        fill: rgba(250, 244, 234, 0.8);
+      }
+
+      .continent {
+        fill: rgba(224, 206, 179, 0.16);
+        stroke: rgba(129, 106, 77, 0.28);
+        stroke-width: 5;
+      }
+
+      .territory {
+        stroke-linejoin: round;
+        stroke-linecap: round;
+        stroke-width: 6;
+        fill-opacity: 0.18;
+      }
+
+      .territory.tone-amber {
+        fill: rgba(216, 163, 97, 0.42);
+        stroke: rgba(168, 119, 62, 0.85);
+      }
+
+      .territory.tone-emerald {
+        fill: rgba(116, 149, 112, 0.38);
+        stroke: rgba(96, 127, 89, 0.85);
+      }
+
+      .territory.tone-sky {
+        fill: rgba(120, 146, 185, 0.34);
+        stroke: rgba(104, 128, 170, 0.84);
+      }
+
+      .territory.tone-rose {
+        fill: rgba(186, 115, 110, 0.3);
+        stroke: rgba(161, 90, 86, 0.86);
+      }
+
+      .territory-label {
+        font-size: 18px;
+        font-weight: 700;
+        fill: rgba(64, 47, 31, 0.82);
+        paint-order: stroke;
+        stroke: rgba(248, 242, 231, 0.9);
+        stroke-width: 4px;
+      }
+
+      .route {
+        fill: none;
+        stroke: rgba(120, 103, 82, 0.4);
+        stroke-width: 3.5;
+        stroke-dasharray: 8 9;
+      }
+
+      .gridLine {
+        stroke: rgba(114, 95, 71, 0.12);
+        stroke-width: 1.5;
+      }
+
+      .gridLine.major {
+        stroke: rgba(114, 95, 71, 0.2);
+        stroke-width: 1.8;
+      }
+
+      .node {
+        cursor: pointer;
+      }
+
+      .node circle {
+        transition:
+          transform 0.16s ease,
+          filter 0.16s ease,
+          stroke-width 0.16s ease;
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+
+      .node:hover circle,
+      .node.active circle {
+        transform: scale(1.12);
+        filter: drop-shadow(0 5px 8px rgba(77, 56, 29, 0.25));
+      }
+
+      .node circle.base {
+        stroke: rgba(255, 249, 239, 0.92);
+        stroke-width: 3;
+      }
+
+      .node.world circle.base {
+        fill: #8692c1;
+      }
+
+      .node.region circle.base {
+        fill: #768f6c;
+      }
+
+      .node.city circle.base {
+        fill: #b3875d;
+      }
+
+      .node.site circle.base {
+        fill: #9d6f6c;
+      }
+
+      .node.faction circle.base {
+        fill: #6e8ba7;
+      }
+
+      .node text {
+        font-size: 15px;
+        font-weight: 700;
+        fill: #2d2317;
+        paint-order: stroke;
+        stroke: rgba(247, 240, 229, 0.95);
+        stroke-width: 3px;
+      }
+
+      .node .tag {
+        font-size: 11px;
+        fill: #5f4f3e;
+      }
+
+      .zoomHud {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        display: flex;
+        gap: 8px;
+        padding: 8px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: rgba(250, 245, 236, 0.92);
+        backdrop-filter: blur(4px);
+        z-index: 2;
+      }
+
+      .zoomHud .toolButton {
+        min-width: 42px;
+        justify-content: center;
+        padding-inline: 12px;
+      }
+
+      .scaleHud {
+        position: absolute;
+        left: 16px;
+        bottom: 16px;
+        z-index: 2;
+        display: grid;
+        gap: 6px;
+        min-width: 180px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(250, 245, 236, 0.94);
+        backdrop-filter: blur(4px);
+      }
+
+      .scaleHud small {
+        color: var(--muted);
+      }
+
+      .scaleTitle {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0;
+      }
+
+      .scaleHud strong {
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .scaleBar {
+        width: 128px;
+        height: 12px;
+        position: relative;
+      }
+
+      .scaleBar::before,
+      .scaleBar::after {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        width: 2px;
+        height: 12px;
+        background: var(--text);
+      }
+
+      .scaleBar::before {
+        left: 0;
+      }
+
+      .scaleBar::after {
+        right: 0;
+      }
+
+      .scaleLine {
+        position: absolute;
+        left: 0;
+        bottom: 5px;
+        height: 2px;
+        width: 100%;
+        background: var(--text);
+      }
+
+      .detailPanel {
+        display: grid;
+        gap: 14px;
+        padding: 16px;
+      }
+
+      .detailGrid {
+        display: grid;
+        grid-template-columns: 1.05fr 0.95fr;
+        gap: 14px;
+      }
+
+      .detailCard {
+        display: grid;
+        gap: 12px;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: linear-gradient(180deg, #fbf8f1, #f4ede3);
+      }
+
+      .detailCard h3 {
+        margin: 0;
+        font-size: 20px;
+        line-height: 1.2;
+      }
+
+      .editPanel {
+        display: grid;
+        gap: 16px;
+        padding: 16px;
+        border: 1px solid rgba(154, 95, 82, 0.42);
+        border-radius: 14px;
+        background: linear-gradient(180deg, #fbf3ef, #f6ebe5);
+      }
+
+      .editPanel[hidden] {
+        display: none;
+      }
+
+      .editPanel h3 {
+        margin: 0;
+        font-size: 20px;
+        line-height: 1.2;
+      }
+
+      .editGrid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .editField {
+        display: grid;
+        gap: 6px;
+      }
+
+      .editField.spanTwo {
+        grid-column: 1 / -1;
+      }
+
+      .editField span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .editField input,
+      .editField textarea {
+        width: 100%;
+        min-height: 38px;
+        padding: 8px 10px;
+        color: var(--text);
+        background: rgba(255, 252, 247, 0.92);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+      }
+
+      .editField textarea {
+        min-height: 88px;
+        resize: vertical;
+        line-height: 1.7;
+      }
+
+      .editActions {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .editActions .spacer {
+        flex: 1 1 auto;
+      }
+
+      .editFeedback {
+        color: var(--danger);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .toolButton.softDanger {
+        color: var(--danger);
+        background: #fff8f5;
+        border-color: rgba(154, 95, 82, 0.46);
+      }
+
+      .toolButton:disabled {
+        cursor: not-allowed;
+        opacity: 0.48;
+      }
+
+      .keyValueList {
+        display: grid;
+        gap: 10px;
+      }
+
+      .kv {
+        display: grid;
+        gap: 4px;
+      }
+
+      .kv span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .kv strong,
+      .kv div {
+        color: var(--text);
+        line-height: 1.7;
+      }
+
+      .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        min-height: 26px;
+        padding: 0 10px;
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        background: #f8f2e8;
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .note {
+        color: var(--muted);
+        line-height: 1.75;
+      }
+
+      .foot {
+        padding: 0 4px 2px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.7;
+      }
+
+      @media (max-width: 1180px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: static;
+        }
+      }
+
+      @media (max-width: 820px) {
+        body {
+          padding: 16px;
+        }
+
+        h1 {
+          font-size: 28px;
+        }
+
+        .viewerTop h2 {
+          font-size: 23px;
+        }
+
+        .detailGrid {
+          grid-template-columns: 1fr;
+        }
+
+        .editGrid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="header">
+        <p class="eyebrow">世界图册 / 地图页示意</p>
+        <h1>世界图册示意页</h1>
+        <p class="subtitle">
+          这一版先把地图页的核心交互定下来，左侧是地图册，右侧是可拖动、可缩放的节点地图。底部左侧的标度尺会跟随当前视野变化，
+          不同题材的地图也能用同一套结构展示，后面再接入正式项目时会更稳。
+        </p>
+      </header>
+
+      <section class="shell">
+        <aside class="panel sidebar" aria-label="地图册列表">
+          <div class="panelHead">
+            <h2>地图册</h2>
+            <span id="mapCount" class="countBadge">4</span>
+          </div>
+          <div id="atlasList" class="atlasList"></div>
+          <div class="atlasFooter">
+            <div>左边只负责选图，右边负责看图和修图。</div>
+            <div>支持总览、区域、城市、建筑、避难所等多种地图类型，不锁死某一种题材。</div>
+          </div>
+        </aside>
+
+        <main class="viewer">
+          <section class="panel viewerTop">
+            <div>
+              <p class="eyebrow" id="mapMetaLine">总览 · 玄幻 · 约 3000 万里</p>
+              <h2 id="mapTitle">寰宇总览图</h2>
+              <p id="mapSummary"></p>
+            </div>
+            <div class="metaStack">
+              <div id="metaChips" class="tags"></div>
+              <div class="toolbar" aria-label="地图工具">
+                <button class="toolButton editMapButton" id="editToggle" type="button">编辑</button>
+                <button class="toolButton" id="zoomOut" type="button">−</button>
+                <button class="toolButton" id="zoomReset" type="button">重置</button>
+                <button class="toolButton" id="zoomIn" type="button">＋</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel mapPanel">
+            <div id="viewport" class="viewport">
+              <div class="zoomHud">
+                <button class="toolButton" id="showTerritory" type="button">势力范围</button>
+                <button class="toolButton active" id="showNodes" type="button">节点</button>
+              </div>
+              <div class="scaleHud" aria-label="标度尺">
+                <small class="scaleTitle">标度尺</small>
+                <strong id="scaleValue">-</strong>
+                <div id="scaleBar" class="scaleBar" aria-hidden="true">
+                  <div id="scaleLine" class="scaleLine"></div>
+                </div>
+                <small id="scaleHint">总览层 · 当前缩放 100%</small>
+              </div>
+              <svg id="mapSvg" class="viewBoxLayer" viewBox="0 0 1600 1000" preserveAspectRatio="none" aria-label="地图画布">
+                <defs>
+                  <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="2.5" result="blur" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+                <g id="scene">
+                  <rect x="0" y="0" width="1600" height="1000" rx="28" class="mapBackdrop"></rect>
+                  <g id="gridLayer"></g>
+                  <g id="territoryLayer"></g>
+                  <g id="routeLayer"></g>
+                  <g id="nodeLayer"></g>
+                  <g id="labelLayer"></g>
+                </g>
+              </svg>
+            </div>
+          </section>
+
+          <section class="panel detailPanel">
+            <div class="detailGrid">
+              <article class="detailCard">
+                <div class="panelHead">
+                  <h3>当前地图说明</h3>
+                  <span id="mapKindChip" class="chip"></span>
+                </div>
+                <div id="mapNote" class="note"></div>
+                <div class="keyValueList">
+                  <div class="kv">
+                    <span>地图名称</span>
+                    <strong id="detailMapName"></strong>
+                  </div>
+                  <div class="kv">
+                    <span>真实尺度</span>
+                    <div id="detailScale"></div>
+                  </div>
+                  <div class="kv">
+                    <span>图层提示</span>
+                    <div id="detailLayers"></div>
+                  </div>
+                </div>
+              </article>
+
+              <article class="detailCard">
+                <div class="panelHead">
+                  <h3>选中节点</h3>
+                  <span id="nodeTypeChip" class="chip">未选中</span>
+                </div>
+                <div class="keyValueList">
+                  <div class="kv">
+                    <span>名称</span>
+                    <strong id="nodeName">点击地图中的节点查看</strong>
+                  </div>
+                  <div class="kv">
+                    <span>位置</span>
+                    <div id="nodePosition">-</div>
+                  </div>
+                  <div class="kv">
+                    <span>所属范围</span>
+                    <div id="nodeFaction">-</div>
+                  </div>
+                  <div class="kv">
+                    <span>说明</span>
+                    <div id="nodeDescription">-</div>
+                  </div>
+                  <div class="kv">
+                    <span>标签</span>
+                    <div id="nodeTags" class="tags"></div>
+                  </div>
+                </div>
+              </article>
+            </div>
+            <section id="editPanel" class="editPanel" hidden>
+              <div class="panelHead">
+                <h3>手动编辑</h3>
+                <span class="chip">作者修正</span>
+              </div>
+              <div class="editGrid">
+                <label class="editField">
+                  <span>地图名称</span>
+                  <input id="editMapTitle" />
+                </label>
+                <label class="editField">
+                  <span>地图类型</span>
+                  <input id="editMapKind" />
+                </label>
+                <label class="editField spanTwo">
+                  <span>地图说明</span>
+                  <textarea id="editMapSummary"></textarea>
+                </label>
+                <label class="editField">
+                  <span>节点名称</span>
+                  <input id="editNodeName" />
+                </label>
+                <label class="editField">
+                  <span>所属范围</span>
+                  <input id="editNodeFaction" />
+                </label>
+                <label class="editField">
+                  <span>横向坐标 x</span>
+                  <input id="editNodeX" type="number" min="0" max="1600" step="1" />
+                </label>
+                <label class="editField">
+                  <span>纵向坐标 y</span>
+                  <input id="editNodeY" type="number" min="0" max="1000" step="1" />
+                </label>
+                <label class="editField spanTwo">
+                  <span>节点说明</span>
+                  <textarea id="editNodeDescription"></textarea>
+                </label>
+                <label class="editField spanTwo">
+                  <span>标签</span>
+                  <input id="editNodeTags" placeholder="用顿号、逗号或空格分隔" />
+                </label>
+              </div>
+              <div class="editActions">
+                <button class="toolButton editMapButton" id="editNewNode" type="button">新增节点</button>
+                <button class="toolButton softDanger" id="editDeleteNode" type="button">删除节点</button>
+                <span class="spacer"></span>
+                <span class="editFeedback" id="editFeedback" aria-live="polite"></span>
+                <button class="toolButton" id="editCancel" type="button">取消</button>
+                <button class="toolButton editMapButton" id="editSave" type="button">保存编辑</button>
+              </div>
+            </section>
+            <div class="foot">
+              这只是演示页，不接后端。正式项目里可以把地图节点、势力范围、相关角色、事件和坐标都绑定到数据库。
+            </div>
+          </section>
+        </main>
+      </section>
+    </div>
+
+    <script>
+      const sceneSize = { width: 1600, height: 1000 };
+      const minorGridStep = 20;
+      const majorGridStep = 40;
+      const scaleBarTargetPx = 128;
+      const svg = document.getElementById("mapSvg");
+      const scene = document.getElementById("scene");
+      const gridLayer = document.getElementById("gridLayer");
+      const territoryLayer = document.getElementById("territoryLayer");
+      const routeLayer = document.getElementById("routeLayer");
+      const nodeLayer = document.getElementById("nodeLayer");
+      const labelLayer = document.getElementById("labelLayer");
+      const viewport = document.getElementById("viewport");
+
+      const atlasList = document.getElementById("atlasList");
+      const mapCount = document.getElementById("mapCount");
+      const mapMetaLine = document.getElementById("mapMetaLine");
+      const mapTitle = document.getElementById("mapTitle");
+      const mapSummary = document.getElementById("mapSummary");
+      const mapKindChip = document.getElementById("mapKindChip");
+      const mapNote = document.getElementById("mapNote");
+      const detailMapName = document.getElementById("detailMapName");
+      const detailScale = document.getElementById("detailScale");
+      const detailLayers = document.getElementById("detailLayers");
+      const metaChips = document.getElementById("metaChips");
+      const scaleValue = document.getElementById("scaleValue");
+      const scaleBar = document.getElementById("scaleBar");
+      const scaleHint = document.getElementById("scaleHint");
+      const scaleLine = document.getElementById("scaleLine");
+      const nodeTypeChip = document.getElementById("nodeTypeChip");
+      const nodeName = document.getElementById("nodeName");
+      const nodePosition = document.getElementById("nodePosition");
+      const nodeFaction = document.getElementById("nodeFaction");
+      const nodeDescription = document.getElementById("nodeDescription");
+      const nodeTags = document.getElementById("nodeTags");
+      const zoomOut = document.getElementById("zoomOut");
+      const zoomIn = document.getElementById("zoomIn");
+      const zoomReset = document.getElementById("zoomReset");
+      const editToggle = document.getElementById("editToggle");
+      const editPanel = document.getElementById("editPanel");
+      const editMapTitle = document.getElementById("editMapTitle");
+      const editMapKind = document.getElementById("editMapKind");
+      const editMapSummary = document.getElementById("editMapSummary");
+      const editNodeName = document.getElementById("editNodeName");
+      const editNodeFaction = document.getElementById("editNodeFaction");
+      const editNodeX = document.getElementById("editNodeX");
+      const editNodeY = document.getElementById("editNodeY");
+      const editNodeDescription = document.getElementById("editNodeDescription");
+      const editNodeTags = document.getElementById("editNodeTags");
+      const editNewNode = document.getElementById("editNewNode");
+      const editDeleteNode = document.getElementById("editDeleteNode");
+      const editFeedback = document.getElementById("editFeedback");
+      const editCancel = document.getElementById("editCancel");
+      const editSave = document.getElementById("editSave");
+
+      const maps = [
+        {
+          id: "world",
+          title: "寰宇总览图",
+          genre: "玄幻",
+          scaleKind: "总览",
+          scaleLabel: "约 3000 万里",
+          realWidth: "3000 万里",
+          realHeight: "1800 万里",
+          worldWidthValue: 3000,
+          worldHeightValue: 1800,
+          worldUnit: "万里",
+          rulerWorld: 240,
+          rulerLabel: "100 万里",
+          summary:
+            "这是一张宏观总览图，用来展示大世界、上界裂隙、虚空海和群域边界。它不是严格等比例地理图，更像一本设定集里的总览插图。",
+          note:
+            "总览图适合表达位面、道域、星域或大陆之间的层级关系。画面里不要追求每一块区域完全等大，而是强调结构和方向感。",
+          chips: ["宏观总览", "适合大世界设定", "留白充足"],
+          layers: "世界骨架、主要势力范围、层级通道、关键节点、边界线",
+          territories: [
+            { id: "t1", name: "天阙皇朝", tone: "emerald", points: "210,150 540,110 630,260 410,370 180,280" },
+            { id: "t2", name: "虚空海", tone: "sky", points: "820,180 1230,210 1400,460 1160,580 890,440" },
+            { id: "t3", name: "裂空同盟", tone: "amber", points: "260,520 560,420 740,570 630,760 320,720" },
+            { id: "t4", name: "下界群星", tone: "rose", points: "1060,640 1340,610 1460,840 1120,890 960,770" },
+          ],
+          connections: [
+            { from: "world-gate", to: "world-void" },
+            { from: "world-gate", to: "world-people" },
+            { from: "world-people", to: "world-void" },
+          ],
+          nodes: [
+            {
+              id: "world-gate",
+              name: "天门中枢",
+              kind: "world",
+              x: 810,
+              y: 210,
+              faction: "天阙皇朝",
+              description: "连接上界与下界的主通道，常用来表达世界级转折点。",
+              tags: ["通道", "世界级", "高危"],
+            },
+            {
+              id: "world-void",
+              name: "虚空海眼",
+              kind: "site",
+              x: 1188,
+              y: 492,
+              faction: "虚空海",
+              description: "漂浮在虚空海中央的危险区，适合做剧情断点。",
+              tags: ["险地", "边界", "剧情节点"],
+            },
+            {
+              id: "world-people",
+              name: "群域边线",
+              kind: "region",
+              x: 470,
+              y: 690,
+              faction: "裂空同盟",
+              description: "多个区域势力交错的位置，适合作为大冲突边界。",
+              tags: ["边境", "多势力", "对峙"],
+            },
+            {
+              id: "world-archive",
+              name: "古卷天库",
+              kind: "site",
+              x: 690,
+              y: 410,
+              faction: "天阙皇朝",
+              description: "只有在更高缩放下才会显示的资料点，适合藏设定与历史。",
+              tags: ["典籍", "资料点"],
+              minZoom: 1.8,
+            },
+            {
+              id: "world-rift",
+              name: "界隙裂纹",
+              kind: "site",
+              x: 990,
+              y: 600,
+              faction: "虚空海",
+              description: "缩放更高时才显示的细节节点，用来演示地图层级展开。",
+              tags: ["隐线", "高缩放"],
+              minZoom: 2.7,
+            },
+          ],
+        },
+        {
+          id: "region",
+          title: "东玄道域",
+          genre: "玄幻",
+          scaleKind: "区域",
+          scaleLabel: "约 80 万里",
+          realWidth: "80 万里",
+          realHeight: "52 万里",
+          worldWidthValue: 80,
+          worldHeightValue: 52,
+          worldUnit: "万里",
+          rulerWorld: 180,
+          rulerLabel: "20 万里",
+          summary:
+            "区域图用于承载宗门、城池、秘境、灵脉山脉和边境荒原。它比总览更细，但依旧保留设定集式的结构感。",
+          note:
+            "区域图适合同时展示多个宗门、主城和秘境之间的关系，势力范围可以用半透明多边形表达，不需要把所有东西做成同样大的点。",
+          chips: ["区域地图", "宗门与城池并存", "可做势力范围"],
+          layers: "宗门驻地、城池、秘境、灵脉、边境荒原、道路",
+          territories: [
+            { id: "r1", name: "天元宗势力圈", tone: "emerald", points: "180,180 560,120 660,280 470,390 180,320" },
+            { id: "r2", name: "黑水城辖区", tone: "amber", points: "840,220 1210,260 1260,480 1000,620 780,420" },
+            { id: "r3", name: "龙渊秘境", tone: "sky", points: "1040,660 1350,610 1460,790 1250,910 960,840" },
+          ],
+          connections: [
+            { from: "region-sect", to: "region-city" },
+            { from: "region-city", to: "region-secret" },
+            { from: "region-sect", to: "region-mine" },
+          ],
+          nodes: [
+            {
+              id: "region-sect",
+              name: "天元宗",
+              kind: "faction",
+              x: 420,
+              y: 220,
+              faction: "宗门势力",
+              description: "主要修行宗门，适合挂主角线和门内斗争。",
+              tags: ["宗门", "主线", "修仙"],
+            },
+            {
+              id: "region-city",
+              name: "黑水城",
+              kind: "city",
+              x: 1040,
+              y: 370,
+              faction: "黑水府",
+              description: "区域中心城，商贸、情报和势力交汇最密集的地方。",
+              tags: ["城池", "交通", "情报"],
+            },
+            {
+              id: "region-secret",
+              name: "龙渊秘境",
+              kind: "site",
+              x: 1210,
+              y: 760,
+              faction: "无人占据",
+              description: "危险秘境，适合埋伏笔、放机缘、做章节推进。",
+              tags: ["秘境", "机缘", "危险"],
+            },
+            {
+              id: "region-mine",
+              name: "白雾灵矿",
+              kind: "site",
+              x: 650,
+              y: 560,
+              faction: "天元宗",
+              description: "资源点，适合补足世界资源、势力资源和经济线。",
+              tags: ["资源", "灵脉", "经济"],
+            },
+            {
+              id: "region-road-junction",
+              name: "三岔古道",
+              kind: "site",
+              x: 880,
+              y: 525,
+              faction: "边境驿路",
+              description: "更高缩放下才出现的道路节点，表现区域内部交通。",
+              tags: ["道路", "交通"],
+              minZoom: 1.7,
+            },
+            {
+              id: "region-watch-post",
+              name: "北境哨台",
+              kind: "site",
+              x: 300,
+              y: 610,
+              faction: "边境军",
+              description: "高缩放下展开的防线节点，能把边界细节补出来。",
+              tags: ["哨所", "防线"],
+              minZoom: 2.5,
+            },
+          ],
+        },
+        {
+          id: "city",
+          title: "澄江市旧城区",
+          genre: "都市",
+          scaleKind: "城市",
+          scaleLabel: "约 48 里",
+          realWidth: "48 里",
+          realHeight: "32 里",
+          worldWidthValue: 48,
+          worldHeightValue: 32,
+          worldUnit: "里",
+          rulerWorld: 220,
+          rulerLabel: "6 里",
+          summary:
+            "这张图把都市小说常见的商圈、旧街区、医院、码头、高架和住宅区放在同一页里，适合表现日常与暗线并行。",
+          note:
+            "都市地图更适合路网、地标和街区范围，不要把每个点都画得像宗门山门那样巨大，重点是通勤、距离和区域归属。",
+          chips: ["都市", "街区", "地标密集"],
+          layers: "街区、道路、商圈、医院、居住区、暗线据点",
+          territories: [
+            { id: "c1", name: "南岸商圈", tone: "amber", points: "180,170 560,150 620,350 390,440 170,310" },
+            { id: "c2", name: "旧城片区", tone: "rose", points: "700,160 1130,190 1180,430 900,520 650,360" },
+            { id: "c3", name: "临江社区", tone: "sky", points: "980,620 1390,590 1460,830 1110,900 860,760" },
+          ],
+          connections: [
+            { from: "city-hospital", to: "city-port" },
+            { from: "city-port", to: "city-bridge" },
+            { from: "city-bridge", to: "city-home" },
+          ],
+          nodes: [
+            {
+              id: "city-hospital",
+              name: "澄江医院",
+              kind: "site",
+              x: 390,
+              y: 290,
+              faction: "公共设施",
+              description: "可作为日常剧情节点，也适合安插事故、失踪和调查线。",
+              tags: ["医院", "日常", "调查"],
+            },
+            {
+              id: "city-port",
+              name: "七码头",
+              kind: "city",
+              x: 1060,
+              y: 355,
+              faction: "海运商会",
+              description: "适合接货运、黑市、追踪和离城线。",
+              tags: ["码头", "流通", "暗线"],
+            },
+            {
+              id: "city-bridge",
+              name: "高架枢纽",
+              kind: "site",
+              x: 760,
+              y: 560,
+              faction: "市政交通",
+              description: "高频经过点，适合埋伏笔和制造偶遇。",
+              tags: ["道路", "交通", "偶遇"],
+            },
+            {
+              id: "city-home",
+              name: "临江公寓",
+              kind: "site",
+              x: 1220,
+              y: 730,
+              faction: "居民区",
+              description: "主角居所或主要据点，便于展示人物日常状态。",
+              tags: ["居所", "日常", "据点"],
+            },
+            {
+              id: "city-school",
+              name: "澄江中学",
+              kind: "site",
+              x: 560,
+              y: 640,
+              faction: "教育区",
+              description: "缩放更高时出现的校园节点，适合日常与人物关系线。",
+              tags: ["学校", "人物线"],
+              minZoom: 1.7,
+            },
+            {
+              id: "city-lane",
+              name: "旧巷口",
+              kind: "site",
+              x: 910,
+              y: 520,
+              faction: "旧城",
+              description: "用于表现街区内部更细的步行路径和生活气息。",
+              tags: ["街巷", "日常"],
+              minZoom: 2.4,
+            },
+          ],
+        },
+        {
+          id: "survival",
+          title: "北港避难所",
+          genre: "末日",
+          scaleKind: "建筑",
+          scaleLabel: "约 28 里",
+          realWidth: "28 里",
+          realHeight: "20 里",
+          worldWidthValue: 28,
+          worldHeightValue: 20,
+          worldUnit: "里",
+          rulerWorld: 210,
+          rulerLabel: "4 里",
+          summary:
+            "末日地图更强调资源、警戒线、出入口和功能分区。它可以是避难所、基地、堡垒或者地下城，不一定非得像城市地图。",
+          note:
+            "末日地图适合把生存功能拆得清楚一些，医疗、净水、仓库、观测和外围防线各占一块，方便作者和 LLM 快速定位。",
+          chips: ["末日", "功能分区", "安全线"],
+          layers: "外墙、仓库、医疗区、净水塔、观测塔、居住舱",
+          territories: [
+            { id: "s1", name: "内环居住区", tone: "emerald", points: "240,210 540,170 620,330 420,430 220,330" },
+            { id: "s2", name: "防御环带", tone: "rose", points: "730,180 1130,210 1220,440 1000,560 720,430" },
+            { id: "s3", name: "外部废土", tone: "amber", points: "940,650 1390,620 1480,850 1060,900 860,780" },
+          ],
+          connections: [
+            { from: "survival-gate", to: "survival-water" },
+            { from: "survival-water", to: "survival-medical" },
+            { from: "survival-medical", to: "survival-warehouse" },
+          ],
+          nodes: [
+            {
+              id: "survival-gate",
+              name: "东门防线",
+              kind: "site",
+              x: 360,
+              y: 320,
+              faction: "北港避难所",
+              description: "最常发生交火和巡逻的入口位置。",
+              tags: ["防线", "出入口", "高风险"],
+            },
+            {
+              id: "survival-water",
+              name: "净水塔",
+              kind: "site",
+              x: 750,
+              y: 270,
+              faction: "供水组",
+              description: "决定避难所能否长期运转的关键设施。",
+              tags: ["供水", "生存", "关键设施"],
+            },
+            {
+              id: "survival-medical",
+              name: "医疗舱",
+              kind: "site",
+              x: 1010,
+              y: 420,
+              faction: "医护组",
+              description: "伤员修复、药物储备和人物状态变化都常在这里发生。",
+              tags: ["医疗", "伤势", "救治"],
+            },
+            {
+              id: "survival-warehouse",
+              name: "物资仓",
+              kind: "site",
+              x: 1250,
+              y: 680,
+              faction: "后勤组",
+              description: "适合库存、争夺、断供和补给线剧情。",
+              tags: ["物资", "后勤", "库存"],
+            },
+            {
+              id: "survival-lab",
+              name: "简易实验室",
+              kind: "site",
+              x: 820,
+              y: 545,
+              faction: "研发组",
+              description: "更高缩放下展示的功能节点，方便表达末日科技线。",
+              tags: ["研究", "装备", "实验"],
+              minZoom: 1.9,
+            },
+            {
+              id: "survival-roof",
+              name: "屋顶瞭望点",
+              kind: "site",
+              x: 1080,
+              y: 220,
+              faction: "侦察组",
+              description: "高缩放显示的观察位点，用于表现防御层次和巡逻。",
+              tags: ["观察", "侦察"],
+              minZoom: 2.6,
+            },
+          ],
+        },
+      ];
+
+      const state = {
+        activeMapId: maps[0].id,
+        selectedNodeId: maps[0].nodes[0].id,
+        camera: {
+          x: 0,
+          y: 0,
+          w: sceneSize.width,
+          h: sceneSize.height,
+        },
+        dragging: false,
+        dragStart: null,
+        cameraStart: null,
+        showTerritories: true,
+        showNodes: true,
+        editing: false,
+      };
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function activeMap() {
+        return maps.find((item) => item.id === state.activeMapId) || maps[0];
+      }
+
+      function viewportSize() {
+        const rect = viewport.getBoundingClientRect();
+        return { width: rect.width || 1, height: rect.height || 1 };
+      }
+
+      function currentZoom() {
+        return sceneSize.width / state.camera.w;
+      }
+
+      function formatDistance(value, unit) {
+        const rounded = value >= 100 ? Math.round(value) : value >= 10 ? Math.round(value * 10) / 10 : Math.round(value * 100) / 100;
+        return `${String(rounded).replace(/\.0+$/, "")} ${unit}`;
+      }
+
+      function pickNiceDistance(raw) {
+        const safe = Math.max(raw, 0.0001);
+        const exponent = Math.floor(Math.log10(safe));
+        const magnitude = Math.pow(10, exponent);
+        const candidates = [1, 2, 5].map((factor) => factor * magnitude);
+        let best = candidates[0];
+        let bestDelta = Math.abs(safe - best);
+        candidates.forEach((candidate) => {
+          const delta = Math.abs(safe - candidate);
+          if (delta < bestDelta) {
+            best = candidate;
+            bestDelta = delta;
+          }
+        });
+        if (best > safe) {
+          return candidates.find((candidate) => candidate <= safe) || candidates[0] / 2;
+        }
+        return best;
+      }
+
+      function zoomLevelLabel(zoom) {
+        if (zoom < 1.35) {
+          return "总览层";
+        }
+        if (zoom < 2.1) {
+          return "区域层";
+        }
+        if (zoom < 3.2) {
+          return "局部层";
+        }
+        return "微观层";
+      }
+
+      function worldPerPixel(map) {
+        const { width: viewportWidth } = viewportSize();
+        const sceneUnitsPerPx = state.camera.w / viewportWidth;
+        const worldPerSceneUnit = map.worldWidthValue / sceneSize.width;
+        return worldPerSceneUnit * sceneUnitsPerPx;
+      }
+
+      function visibleAtZoom(node, zoom) {
+        return zoom >= (node.minZoom ?? 1);
+      }
+
+      function labelVisibleAtZoom(node, zoom) {
+        return zoom >= (node.labelMinZoom ?? 1);
+      }
+
+      function mapExtentLabel(map) {
+        return `${map.worldWidthValue} ${map.worldUnit} × ${map.worldHeightValue} ${map.worldUnit}`;
+      }
+
+      function mapAreaLabel(map) {
+        const area = map.worldWidthValue * map.worldHeightValue;
+        const rounded = area >= 100 ? Math.round(area) : Math.round(area * 10) / 10;
+        const unit = map.worldUnit === "万里" ? "万里²" : `${map.worldUnit}²`;
+        return `约 ${rounded} ${unit}`;
+      }
+
+      function selectedNode() {
+        const map = activeMap();
+        return map.nodes.find((item) => item.id === state.selectedNodeId) || map.nodes[0] || null;
+      }
+
+      function splitTags(value) {
+        return String(value || "")
+          .split(/\s+|[，,、；;]/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+      }
+
+      function setEditFeedback(message) {
+        editFeedback.textContent = message || "";
+      }
+
+      function coordinateValue(value, fallback, max) {
+        const nextValue = Number(value);
+        return Number.isFinite(nextValue) ? clamp(nextValue, 0, max) : fallback;
+      }
+
+      function cameraCenter() {
+        return {
+          x: Math.round(clamp(state.camera.x + state.camera.w / 2, 0, sceneSize.width)),
+          y: Math.round(clamp(state.camera.y + state.camera.h / 2, 0, sceneSize.height)),
+        };
+      }
+
+      function manualNodeId(map) {
+        let index = map.nodes.length + 1;
+        let id = `${map.id}-manual-${index}`;
+        while (map.nodes.some((node) => node.id === id)) {
+          index += 1;
+          id = `${map.id}-manual-${index}`;
+        }
+        return id;
+      }
+
+      function rerenderAfterEdit() {
+        renderAtlasList();
+        renderMapHeader();
+        renderTerritories();
+        renderNodes();
+        renderNodeDetails();
+        renderScaleHud();
+        updateSceneTransform();
+        renderEditPanel();
+      }
+
+      function setEditing(nextEditing) {
+        state.editing = nextEditing;
+        editPanel.hidden = !state.editing;
+        editToggle.classList.toggle("active", state.editing);
+        editToggle.textContent = state.editing ? "完成" : "编辑";
+        setEditFeedback("");
+        if (state.editing) {
+          renderEditPanel();
+        }
+      }
+
+      function renderEditPanel() {
+        if (!state.editing) {
+          return;
+        }
+        const map = activeMap();
+        const node = selectedNode();
+        editMapTitle.value = map.title || "";
+        editMapKind.value = map.scaleKind || "";
+        editMapSummary.value = map.summary || "";
+        editNodeName.value = node?.name || "";
+        editNodeFaction.value = node?.faction || "";
+        editNodeX.value = node?.x ?? "";
+        editNodeY.value = node?.y ?? "";
+        editNodeDescription.value = node?.description || "";
+        editNodeTags.value = (node?.tags || []).join("、");
+        [editNodeName, editNodeFaction, editNodeX, editNodeY, editNodeDescription, editNodeTags].forEach((field) => {
+          field.disabled = !node;
+        });
+        editDeleteNode.disabled = !node;
+      }
+
+      function saveManualEdit() {
+        const map = activeMap();
+        const node = selectedNode();
+        map.title = editMapTitle.value.trim() || map.title;
+        map.scaleKind = editMapKind.value.trim() || map.scaleKind;
+        map.summary = editMapSummary.value.trim() || map.summary;
+
+        if (node) {
+          node.name = editNodeName.value.trim() || node.name;
+          node.faction = editNodeFaction.value.trim() || node.faction;
+          node.x = coordinateValue(editNodeX.value, node.x, sceneSize.width);
+          node.y = coordinateValue(editNodeY.value, node.y, sceneSize.height);
+          node.description = editNodeDescription.value.trim() || node.description;
+          node.tags = splitTags(editNodeTags.value);
+        }
+
+        setEditFeedback("已保存");
+        rerenderAfterEdit();
+      }
+
+      function addManualNode() {
+        const map = activeMap();
+        const center = cameraCenter();
+        const node = {
+          id: manualNodeId(map),
+          name: "新建节点",
+          kind: "site",
+          x: center.x,
+          y: center.y,
+          faction: "未设定",
+          description: "手动新增的地图节点，可以在这里补充说明。",
+          tags: ["手动新增"],
+        };
+        map.nodes.push(node);
+        state.selectedNodeId = node.id;
+        state.showNodes = true;
+        nodeLayer.style.display = "block";
+        setEditing(true);
+        setEditFeedback("已新增节点");
+        rerenderAfterEdit();
+        editNodeName.focus();
+        editNodeName.select();
+      }
+
+      function deleteManualNode() {
+        const map = activeMap();
+        const node = selectedNode();
+        if (!node) {
+          return;
+        }
+        if (!window.confirm(`确认删除「${node.name}」这个地图节点吗？`)) {
+          return;
+        }
+        map.nodes = map.nodes.filter((item) => item.id !== node.id);
+        map.connections = (map.connections || []).filter((item) => item.from !== node.id && item.to !== node.id);
+        state.selectedNodeId = map.nodes[0]?.id || "";
+        setEditFeedback("已删除节点");
+        rerenderAfterEdit();
+      }
+
+      function currentScaleText(map) {
+        const zoom = currentZoom();
+        const worldPx = worldPerPixel(map);
+        const rawDistance = worldPx * scaleBarTargetPx;
+        return {
+          zoom,
+          barWidth: scaleBarTargetPx,
+          label: formatDistance(rawDistance, map.worldUnit),
+          hint: `${zoomLevelLabel(zoom)} · 当前缩放 ${Math.round(zoom * 100)}%`,
+        };
+      }
+
+      function resetCamera() {
+        state.camera = {
+          x: 0,
+          y: 0,
+          w: sceneSize.width,
+          h: sceneSize.height,
+        };
+        renderScaleHud();
+        updateSceneTransform();
+        renderNodes();
+        renderNodeDetails();
+      }
+
+      function updateSceneTransform() {
+        const map = activeMap();
+        const viewBox = `${state.camera.x} ${state.camera.y} ${state.camera.w} ${state.camera.h}`;
+        svg.setAttribute("viewBox", viewBox);
+      }
+
+      function zoomAt(factor, clientX = null, clientY = null) {
+        const nextW = clamp(state.camera.w * factor, 280, sceneSize.width);
+        const nextH = clamp(state.camera.h * factor, 175, sceneSize.height);
+        const { width: vw, height: vh } = viewportSize();
+        const rect = viewport.getBoundingClientRect();
+        const localX = clientX === null ? vw / 2 : clientX - rect.left;
+        const localY = clientY === null ? vh / 2 : clientY - rect.top;
+        const ratioX = localX / vw;
+        const ratioY = localY / vh;
+        const focusX = state.camera.x + ratioX * state.camera.w;
+        const focusY = state.camera.y + ratioY * state.camera.h;
+        state.camera.w = nextW;
+        state.camera.h = nextH;
+        state.camera.x = clamp(focusX - ratioX * nextW, 0, sceneSize.width - nextW);
+        state.camera.y = clamp(focusY - ratioY * nextH, 0, sceneSize.height - nextH);
+        renderScaleHud();
+        updateSceneTransform();
+        renderNodes();
+        renderNodeDetails();
+      }
+
+      function panBy(deltaX, deltaY) {
+        const { width: vw, height: vh } = viewportSize();
+        state.camera.x = clamp(state.camera.x - (deltaX / vw) * state.camera.w, 0, sceneSize.width - state.camera.w);
+        state.camera.y = clamp(state.camera.y - (deltaY / vh) * state.camera.h, 0, sceneSize.height - state.camera.h);
+        updateSceneTransform();
+      }
+
+      function renderAtlasList() {
+        mapCount.textContent = maps.length;
+        atlasList.innerHTML = "";
+        maps.forEach((map) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = map.id === state.activeMapId ? "atlasCard active" : "atlasCard";
+          button.innerHTML = `
+            <div class="atlasMeta">
+              <span class="chip">${map.genre}</span>
+              <span class="chip">${map.scaleKind}</span>
+            </div>
+            <strong>${map.title}</strong>
+            <small>${mapExtentLabel(map)}</small>
+            <small>${mapAreaLabel(map)}</small>
+            <small>${map.summary}</small>
+          `;
+          button.addEventListener("click", () => {
+            state.activeMapId = map.id;
+            state.selectedNodeId = map.nodes[0]?.id || "";
+            resetCamera();
+            renderAll();
+          });
+          atlasList.appendChild(button);
+        });
+      }
+
+      function renderMapHeader() {
+        const map = activeMap();
+        mapMetaLine.textContent = `${map.scaleKind} · ${map.genre} · ${mapExtentLabel(map)}`;
+        mapTitle.textContent = map.title;
+        mapSummary.textContent = map.summary;
+        mapKindChip.textContent = map.scaleKind;
+        mapNote.textContent = map.note;
+        detailMapName.textContent = map.title;
+        detailScale.textContent = `${mapExtentLabel(map)}（${mapAreaLabel(map)}）`;
+        detailLayers.textContent = map.layers;
+        metaChips.innerHTML = "";
+        map.chips.forEach((chip) => {
+          const el = document.createElement("span");
+          el.className = "tag";
+          el.textContent = chip;
+          metaChips.appendChild(el);
+        });
+      }
+
+      function renderGrid() {
+        gridLayer.innerHTML = "";
+        for (let x = 0; x <= sceneSize.width; x += minorGridStep) {
+          const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          line.setAttribute("x1", x);
+          line.setAttribute("y1", 0);
+          line.setAttribute("x2", x);
+          line.setAttribute("y2", sceneSize.height);
+          line.setAttribute("class", "gridLine");
+          if (x % majorGridStep === 0) {
+            line.classList.add("major");
+          }
+          gridLayer.appendChild(line);
+        }
+        for (let y = 0; y <= sceneSize.height; y += minorGridStep) {
+          const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+          line.setAttribute("x1", 0);
+          line.setAttribute("y1", y);
+          line.setAttribute("x2", sceneSize.width);
+          line.setAttribute("y2", y);
+          line.setAttribute("class", "gridLine");
+          if (y % majorGridStep === 0) {
+            line.classList.add("major");
+          }
+          gridLayer.appendChild(line);
+        }
+      }
+
+      function renderTerritories() {
+        const map = activeMap();
+        territoryLayer.innerHTML = "";
+        routeLayer.innerHTML = "";
+        labelLayer.innerHTML = "";
+
+        if (state.showTerritories) {
+          map.territories.forEach((territory) => {
+            const poly = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+            poly.setAttribute("points", territory.points);
+            poly.setAttribute("class", `territory tone-${territory.tone}`);
+            poly.setAttribute("filter", "url(#softGlow)");
+            territoryLayer.appendChild(poly);
+
+            const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            const points = territory.points.split(" ").map((pair) => pair.split(",").map(Number));
+            const centroid = points.reduce(
+              (acc, [x, y]) => ({ x: acc.x + x / points.length, y: acc.y + y / points.length }),
+              { x: 0, y: 0 }
+            );
+            label.setAttribute("x", centroid.x);
+            label.setAttribute("y", centroid.y);
+            label.setAttribute("text-anchor", "middle");
+            label.setAttribute("class", "territory-label");
+            label.textContent = territory.name;
+            labelLayer.appendChild(label);
+          });
+
+          map.connections.forEach((connection) => {
+            const from = map.nodes.find((node) => node.id === connection.from);
+            const to = map.nodes.find((node) => node.id === connection.to);
+            if (!from || !to) {
+              return;
+            }
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            line.setAttribute("d", connectionPath(from, to));
+            line.setAttribute("class", "route");
+            routeLayer.appendChild(line);
+          });
+        }
+      }
+
+      function connectionPath(from, to) {
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const distance = Math.max(Math.hypot(dx, dy), 1);
+        const startInset = 26;
+        const endInset = 26;
+        const startX = from.x + (dx / distance) * startInset;
+        const startY = from.y + (dy / distance) * startInset;
+        const endX = to.x - (dx / distance) * endInset;
+        const endY = to.y - (dy / distance) * endInset;
+        const bend = clamp(distance * 0.16, 26, 88);
+        const normalX = -dy / distance;
+        const normalY = dx / distance;
+        const mid1X = startX + dx * 0.33 + normalX * bend;
+        const mid1Y = startY + dy * 0.33 + normalY * bend;
+        const mid2X = startX + dx * 0.66 + normalX * (bend * 0.35);
+        const mid2Y = startY + dy * 0.66 + normalY * (bend * 0.35);
+        return `M ${startX.toFixed(1)} ${startY.toFixed(1)} C ${mid1X.toFixed(1)} ${mid1Y.toFixed(1)}, ${mid2X.toFixed(1)} ${mid2Y.toFixed(1)}, ${endX.toFixed(1)} ${endY.toFixed(1)}`;
+      }
+
+      function renderNodes() {
+        const map = activeMap();
+        const zoom = currentZoom();
+        const visibleNodes = map.nodes.filter((node) => visibleAtZoom(node, zoom));
+        if (!visibleNodes.some((node) => node.id === state.selectedNodeId)) {
+          state.selectedNodeId = visibleNodes[0]?.id || "";
+        }
+        nodeLayer.innerHTML = "";
+        visibleNodes.forEach((node) => {
+          const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+          group.setAttribute("class", `node ${node.kind}`);
+          group.setAttribute("data-node-id", node.id);
+          group.setAttribute("tabindex", "0");
+          group.setAttribute("role", "button");
+          group.setAttribute("aria-label", node.name);
+
+          const active = node.id === state.selectedNodeId;
+          if (active) {
+            group.classList.add("active");
+          }
+
+          const ring = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          ring.setAttribute("cx", node.x);
+          ring.setAttribute("cy", node.y);
+          ring.setAttribute("r", active ? "20" : "16");
+          ring.setAttribute("class", "base");
+
+          const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+          halo.setAttribute("cx", node.x);
+          halo.setAttribute("cy", node.y);
+          halo.setAttribute("r", active ? "30" : "24");
+          halo.setAttribute("fill", "none");
+          halo.setAttribute("stroke", "rgba(255, 248, 238, 0.55)");
+          halo.setAttribute("stroke-width", "2");
+
+          const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          label.setAttribute("x", node.x + 24);
+          label.setAttribute("y", node.y - 7);
+          label.textContent = node.name;
+          if (!labelVisibleAtZoom(node, zoom)) {
+            label.style.display = "none";
+          }
+
+          const tag = document.createElementNS("http://www.w3.org/2000/svg", "text");
+          tag.setAttribute("x", node.x + 24);
+          tag.setAttribute("y", node.y + 13);
+          tag.setAttribute("class", "tag");
+          tag.textContent = node.faction;
+          if (zoom < 1.8) {
+            tag.style.display = "none";
+          }
+
+          group.appendChild(halo);
+          group.appendChild(ring);
+          group.appendChild(label);
+          group.appendChild(tag);
+
+          group.addEventListener("pointerdown", (event) => {
+            event.stopPropagation();
+          });
+          group.addEventListener("click", (event) => {
+            event.stopPropagation();
+            state.selectedNodeId = node.id;
+            renderNodes();
+            renderNodeDetails();
+          });
+          group.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              state.selectedNodeId = node.id;
+              renderNodes();
+              renderNodeDetails();
+            }
+          });
+
+          nodeLayer.appendChild(group);
+        });
+      }
+
+      function renderNodeDetails() {
+        const map = activeMap();
+        const node = map.nodes.find((item) => item.id === state.selectedNodeId) || map.nodes[0] || null;
+        if (!node) {
+          nodeTypeChip.textContent = "未选中";
+          nodeName.textContent = "点击地图中的节点查看";
+          nodePosition.textContent = "-";
+          nodeFaction.textContent = "-";
+          nodeDescription.textContent = "-";
+          nodeTags.innerHTML = "";
+          renderEditPanel();
+          return;
+        }
+        nodeTypeChip.textContent = node.kind === "faction" ? "势力节点" : node.kind === "city" ? "城市节点" : node.kind === "world" ? "世界节点" : "地点节点";
+        nodeName.textContent = node.name;
+        nodePosition.textContent = `x ${node.x}，y ${node.y}`;
+        nodeFaction.textContent = node.faction;
+        nodeDescription.textContent = node.description;
+        nodeTags.innerHTML = "";
+        node.tags.forEach((tag) => {
+          const el = document.createElement("span");
+          el.className = "tag";
+          el.textContent = tag;
+          nodeTags.appendChild(el);
+        });
+        renderEditPanel();
+      }
+
+      function renderScaleHud() {
+        const map = activeMap();
+        const scale = currentScaleText(map);
+        const visibleNodeCount = map.nodes.filter((node) => visibleAtZoom(node, scale.zoom)).length;
+        scaleValue.textContent = scale.label;
+        scaleBar.style.width = `${scale.barWidth}px`;
+        scaleLine.style.width = "100%";
+        scaleHint.textContent = scale.hint;
+        detailLayers.textContent = `${map.layers}；当前层级显示 ${visibleNodeCount}/${map.nodes.length} 个节点。`;
+      }
+
+      function renderAll() {
+        renderAtlasList();
+        renderMapHeader();
+        renderGrid();
+        renderTerritories();
+        renderNodes();
+        renderNodeDetails();
+        renderScaleHud();
+        updateSceneTransform();
+      }
+
+      viewport.addEventListener("pointerdown", (event) => {
+        state.dragging = true;
+        viewport.classList.add("dragging");
+        state.dragStart = { x: event.clientX, y: event.clientY };
+        state.cameraStart = { ...state.camera };
+        viewport.setPointerCapture(event.pointerId);
+      });
+
+      viewport.addEventListener("pointermove", (event) => {
+        if (!state.dragging || !state.dragStart || !state.cameraStart) {
+          return;
+        }
+        const dx = event.clientX - state.dragStart.x;
+        const dy = event.clientY - state.dragStart.y;
+        const { width: vw, height: vh } = viewportSize();
+        state.camera.x = clamp(state.cameraStart.x - (dx / vw) * state.cameraStart.w, 0, sceneSize.width - state.cameraStart.w);
+        state.camera.y = clamp(state.cameraStart.y - (dy / vh) * state.cameraStart.h, 0, sceneSize.height - state.cameraStart.h);
+        updateSceneTransform();
+      });
+
+      viewport.addEventListener("pointerup", () => {
+        state.dragging = false;
+        viewport.classList.remove("dragging");
+        state.dragStart = null;
+        state.cameraStart = null;
+      });
+
+      viewport.addEventListener("pointerleave", () => {
+        state.dragging = false;
+        viewport.classList.remove("dragging");
+        state.dragStart = null;
+        state.cameraStart = null;
+      });
+
+      viewport.addEventListener("wheel", (event) => {
+        event.preventDefault();
+        const direction = event.deltaY > 0 ? 1.08 : 0.92;
+        zoomAt(direction, event.clientX, event.clientY);
+      }, { passive: false });
+
+      zoomOut.addEventListener("click", () => zoomAt(1.12));
+      zoomIn.addEventListener("click", () => zoomAt(0.88));
+      zoomReset.addEventListener("click", () => {
+        resetCamera();
+      });
+
+      document.getElementById("showTerritory").addEventListener("click", (event) => {
+        state.showTerritories = !state.showTerritories;
+        event.currentTarget.classList.toggle("active", state.showTerritories);
+        renderTerritories();
+      });
+
+      document.getElementById("showNodes").addEventListener("click", (event) => {
+        state.showNodes = !state.showNodes;
+        event.currentTarget.classList.toggle("active", state.showNodes);
+        nodeLayer.style.display = state.showNodes ? "block" : "none";
+      });
+
+      editToggle.addEventListener("click", () => {
+        setEditing(!state.editing);
+      });
+
+      editNewNode.addEventListener("click", () => {
+        addManualNode();
+      });
+
+      editDeleteNode.addEventListener("click", () => {
+        deleteManualNode();
+      });
+
+      editCancel.addEventListener("click", () => {
+        setEditing(false);
+      });
+
+      editSave.addEventListener("click", () => {
+        saveManualEdit();
+      });
+
+      window.addEventListener("resize", () => {
+        renderScaleHud();
+        updateSceneTransform();
+      });
+
+      renderAll();
+    </script>
+  </body>
+</html>

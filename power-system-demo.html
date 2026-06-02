@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>境界体系示意页</title>
+    <style>
+      :root {
+        --bg: #f4efe7;
+        --panel: #fbf8f2;
+        --panel-2: #f6f1e8;
+        --border: #d7cbb8;
+        --text: #2c2318;
+        --muted: #6a5a49;
+        --accent: #8a5a3d;
+        --accent-soft: #e7d6c4;
+        --row-hover: #f8f0e6;
+        --shadow: 0 10px 28px rgba(72, 52, 34, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.55), transparent 35%),
+          linear-gradient(180deg, #f8f3ec, #efe6d8);
+        color: var(--text);
+        font-family: "STKaiti", "KaiTi", "Songti SC", "SimSun", serif;
+      }
+
+      body {
+        padding: 32px;
+      }
+
+      .page {
+        max-width: 1180px;
+        margin: 0 auto;
+      }
+
+      .header {
+        display: grid;
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+
+      .eyebrow {
+        margin: 0;
+        color: var(--muted);
+        font-size: 15px;
+        letter-spacing: 0;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 34px;
+        font-weight: 700;
+        line-height: 1.15;
+      }
+
+      .subtitle {
+        margin: 0;
+        max-width: 72ch;
+        color: var(--muted);
+        line-height: 1.8;
+        font-size: 18px;
+      }
+
+      .panel {
+        background: rgba(251, 248, 242, 0.92);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 16px 18px;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(180deg, #fcfaf6, #f5eee4);
+      }
+
+      .toolbar strong {
+        font-size: 18px;
+      }
+
+      .legend {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+
+      thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        padding: 14px 16px;
+        text-align: left;
+        font-size: 16px;
+        font-weight: 700;
+        color: var(--muted);
+        background: #f7f1e7;
+        border-bottom: 1px solid var(--border);
+      }
+
+      tbody tr {
+        background: var(--panel);
+      }
+
+      tbody tr + tr td {
+        border-top: 1px solid rgba(215, 203, 184, 0.35);
+      }
+
+      td {
+        padding: 15px 16px;
+        vertical-align: top;
+        word-break: break-word;
+      }
+
+      .col-realm {
+        width: 28%;
+      }
+
+      .col-name {
+        width: 24%;
+      }
+
+      .col-desc {
+        width: 48%;
+      }
+
+      .realm-row {
+        cursor: pointer;
+        transition: background 0.15s ease;
+      }
+
+      .realm-row:hover {
+        background: var(--row-hover);
+      }
+
+      .realm-cell {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .toggle {
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--accent-soft);
+        color: var(--accent);
+        font-size: 16px;
+        flex: none;
+      }
+
+      .realm-label {
+        font-size: 17px;
+        font-weight: 700;
+      }
+
+      .realm-name {
+        font-size: 20px;
+        font-weight: 700;
+      }
+
+      .desc {
+        color: var(--text);
+        line-height: 1.65;
+      }
+
+      .minor-row {
+        display: none;
+        background: var(--panel-2);
+      }
+
+      .minor-row td {
+        padding-left: 34px;
+      }
+
+      .minor-row .col-realm {
+        color: var(--muted);
+      }
+
+      .minor-row .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.7);
+        color: var(--accent);
+        font-size: 13px;
+      }
+
+      .group-open .minor-row {
+        display: table-row;
+      }
+
+      .group-open .toggle {
+        background: #d9c0a7;
+        color: #fff;
+      }
+
+      .footnote {
+        padding: 14px 18px 18px;
+        color: var(--muted);
+        font-size: 14px;
+        line-height: 1.7;
+        border-top: 1px solid var(--border);
+        background: linear-gradient(180deg, #faf6f0, #f4ede2);
+      }
+
+      @media (max-width: 860px) {
+        body {
+          padding: 16px;
+        }
+
+        h1 {
+          font-size: 28px;
+        }
+
+        .subtitle {
+          font-size: 16px;
+        }
+
+        .toolbar {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .col-realm {
+          width: 34%;
+        }
+
+        .col-name {
+          width: 26%;
+        }
+
+        .col-desc {
+          width: 40%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header class="header">
+        <p class="eyebrow">境界体系示意</p>
+        <h1>表格展示 + 可收起的小境界</h1>
+        <p class="subtitle">
+          第一列显示境界层级，第二列显示名称，第三列显示说明。点击某个大境界后，会展开它对应的小境界，再次点击则收起。
+        </p>
+      </header>
+
+      <section class="panel">
+        <div class="toolbar">
+          <strong>境界体系</strong>
+          <div class="legend">
+            <span>● 大境界可点击展开 / 收起</span>
+            <span>● 小境界从属于当前大境界</span>
+            <span>● 纯 HTML 原型，不影响正式代码</span>
+          </div>
+        </div>
+
+        <table aria-label="境界体系表格">
+          <thead>
+            <tr>
+              <th class="col-realm">境界</th>
+              <th class="col-name">名称</th>
+              <th class="col-desc">说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="realm-row" data-group="g1" aria-expanded="false" tabindex="0">
+              <td class="col-realm">
+                <div class="realm-cell">
+                  <span class="toggle">+</span>
+                  <span class="realm-label">大境界</span>
+                </div>
+              </td>
+              <td class="col-name">
+                <div class="realm-name">炼气境</div>
+              </td>
+              <td class="col-desc">
+                <div class="desc">以吸纳天地灵气为主，打通经脉、稳固根基，为后续筑基与更高层次做准备。</div>
+              </td>
+            </tr>
+
+            <tr class="minor-row" data-parent="g1">
+              <td class="col-realm"><span class="pill">小境界</span></td>
+              <td class="col-name">初期</td>
+              <td class="col-desc">灵气入体，尚不稳定，主要任务是适应灵力流转。</td>
+            </tr>
+            <tr class="minor-row" data-parent="g1">
+              <td class="col-realm"><span class="pill">小境界</span></td>
+              <td class="col-name">中期</td>
+              <td class="col-desc">经脉逐渐稳固，灵力运转更顺畅，能够施展基础术法。</td>
+            </tr>
+            <tr class="minor-row" data-parent="g1">
+              <td class="col-realm"><span class="pill">小境界</span></td>
+              <td class="col-name">后期</td>
+              <td class="col-desc">灵力积累接近上限，开始准备冲击下一大境界。</td>
+            </tr>
+
+            <tr class="realm-row" data-group="g2" aria-expanded="false" tabindex="0">
+              <td class="col-realm">
+                <div class="realm-cell">
+                  <span class="toggle">+</span>
+                  <span class="realm-label">大境界</span>
+                </div>
+              </td>
+              <td class="col-name">
+                <div class="realm-name">筑基境</div>
+              </td>
+              <td class="col-desc">
+                <div class="desc">将散乱的灵力压实为稳定根基，修行者的体魄、神识与术法承载能力都会明显提升。</div>
+              </td>
+            </tr>
+
+            <tr class="minor-row" data-parent="g2">
+              <td class="col-realm"><span class="pill">小境界</span></td>
+              <td class="col-name">前期</td>
+              <td class="col-desc">根基刚立，体内灵力初成结构。</td>
+            </tr>
+            <tr class="minor-row" data-parent="g2">
+              <td class="col-realm"><span class="pill">小境界</span></td>
+              <td class="col-name">中期</td>
+              <td class="col-desc">灵力运转稳定，可承载更复杂的功法与术式。</td>
+            </tr>
+            <tr class="minor-row" data-parent="g2">
+              <td class="col-realm"><span class="pill">小境界</span></td>
+              <td class="col-name">圆满</td>
+              <td class="col-desc">根基尽稳，随时可尝试冲击下一层境界。</td>
+            </tr>
+
+            <tr class="realm-row" data-group="g3" aria-expanded="false" tabindex="0">
+              <td class="col-realm">
+                <div class="realm-cell">
+                  <span class="toggle">+</span>
+                  <span class="realm-label">大境界</span>
+                </div>
+              </td>
+              <td class="col-name">
+                <div class="realm-name">元婴境</div>
+              </td>
+              <td class="col-desc">
+                <div class="desc">修行者凝聚元婴，灵识与法力进入新的层次，可远距离施法并具备更强的生存能力。</div>
+              </td>
+            </tr>
+
+            <tr class="minor-row" data-parent="g3">
+              <td class="col-realm"><span class="pill">小境界</span></td>
+              <td class="col-name">初成</td>
+              <td class="col-desc">元婴初立，气息仍需稳固。</td>
+            </tr>
+            <tr class="minor-row" data-parent="g3">
+              <td class="col-realm"><span class="pill">小境界</span></td>
+              <td class="col-name">稳固</td>
+              <td class="col-desc">元婴逐渐成熟，可独立维持大量术法消耗。</td>
+            </tr>
+            <tr class="minor-row" data-parent="g3">
+              <td class="col-realm"><span class="pill">小境界</span></td>
+              <td class="col-name">圆满</td>
+              <td class="col-desc">元婴与本体高度统一，为冲击更高层次准备。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="footnote">
+          这只是示意版。正式版里，左侧可以是“境界层级”标签，第二列显示大境界名称，第三列显示说明。
+          小境界依旧挂在大境界下面，点击大境界就能展开或收起，不会把表格做成乱七八糟的长列表。
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const groups = document.querySelectorAll(".realm-row");
+
+      function setOpen(row, open) {
+        const group = row.dataset.group;
+        const minorRows = document.querySelectorAll(`.minor-row[data-parent="${group}"]`);
+        row.classList.toggle("open", open);
+        row.setAttribute("aria-expanded", open ? "true" : "false");
+        row.querySelector(".toggle").textContent = open ? "−" : "+";
+        minorRows.forEach((item) => {
+          item.style.display = open ? "table-row" : "none";
+        });
+      }
+
+      groups.forEach((row) => {
+        setOpen(row, false);
+        row.addEventListener("click", () => {
+          setOpen(row, row.getAttribute("aria-expanded") !== "true");
+        });
+        row.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            setOpen(row, row.getAttribute("aria-expanded") !== "true");
+          }
+        });
+      });
+    </script>
+  </body>
+</html>

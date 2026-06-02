@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "小说资料台",
+  "version": "0.1.0",
+  "identifier": "local.novel.cockpit",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "小说资料台",
+        "width": 980,
+        "height": 680,
+        "minWidth": 420,
+        "minHeight": 520,
+        "resizable": true,
+        "decorations": true,
+        "alwaysOnTop": true,
+        "transparent": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis"
+    ],
+    "resources": [
+      "../../backend/app",
+      "../../backend/dist",
+      "../../backend/requirements.txt"
+    ],
+    "icon": [
+      "icons/icon.ico"
+    ]
+  }
+}

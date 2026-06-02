@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>境界体系演示页</title>
+    <style>
+      :root {
+        --bg: #f4f0e8;
+        --panel: #fbf8f2;
+        --panel-2: #f6f1e8;
+        --border: #d5c9b8;
+        --text: #2f261d;
+        --muted: #6b5d4b;
+        --accent: #5c74a8;
+        --accent-soft: #e7edf7;
+        --line: #e2d7c7;
+        --shadow: 0 12px 28px rgba(63, 48, 30, 0.07);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        background:
+          linear-gradient(180deg, #f8f4ed 0%, #f1e8da 100%);
+        color: var(--text);
+        font-family: "KaiTi", "STKaiti", "Songti SC", "SimSun", serif;
+      }
+
+      body {
+        padding: 16px;
+      }
+
+      .shell {
+        display: grid;
+        grid-template-columns: 282px minmax(0, 1fr);
+        gap: 12px;
+        max-width: 1440px;
+        margin: 0 auto;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+      }
+
+      .sidebar {
+        padding: 14px;
+        display: grid;
+        gap: 8px;
+        align-content: start;
+      }
+
+      .titleRow,
+      .headRow,
+      .tableToolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .titleRow {
+        padding-bottom: 2px;
+      }
+
+      .titleRow h1 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .badge {
+        min-width: 30px;
+        height: 26px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: #f4efe7;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .stack {
+        display: grid;
+        gap: 4px;
+      }
+
+      .cardList {
+        display: grid;
+        gap: 4px;
+      }
+
+      .miniCard {
+        width: 100%;
+        padding: 10px 11px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: #fcfaf6;
+        text-align: left;
+        color: var(--text);
+        cursor: pointer;
+        transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+      }
+
+      .miniCard:hover {
+        border-color: #bfae97;
+        transform: translateY(-1px);
+      }
+
+      .miniCard.active {
+        background: #f0f5fd;
+        border-color: var(--accent);
+      }
+
+      .miniCard strong {
+        display: block;
+        font-size: 16px;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+
+      .miniCard small {
+        display: block;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+
+      .compactGap {
+        margin-top: -2px;
+      }
+
+      .overviewMini {
+        padding-bottom: 12px;
+      }
+
+      .overviewMini small:last-child {
+        color: #8a7860;
+      }
+
+      .workspace {
+        min-width: 0;
+        padding: 16px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .editorCard {
+        padding: 16px;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+      }
+
+      .editorHead {
+        display: flex;
+        justify-content: space-between;
+        align-items: start;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .editorHead h2 {
+        margin: 0;
+        font-size: 22px;
+        line-height: 1.15;
+      }
+
+      .editorHead p {
+        margin: 4px 0 0;
+        color: var(--muted);
+      }
+
+      .editButton {
+        border: 1px solid var(--border);
+        background: #f5efe6;
+        color: var(--text);
+        border-radius: 999px;
+        padding: 8px 14px;
+        font-family: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .editButton.active {
+        background: var(--accent);
+        color: white;
+        border-color: var(--accent);
+      }
+
+      .summaryBox {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #fcfaf7;
+        overflow: hidden;
+      }
+
+      .summaryBox.editing {
+        background: #fff;
+      }
+
+      .summaryLabel {
+        padding: 10px 12px 0;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .summaryView {
+        padding: 10px 12px 12px;
+        line-height: 1.9;
+        font-size: 16px;
+      }
+
+      .tagFlow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px 12px 14px;
+      }
+
+      .tagChip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 32px;
+        padding: 0 12px;
+        border-radius: 999px;
+        border: 1px solid #d8cbb8;
+        background: #f8f3ea;
+        font-size: 14px;
+        line-height: 1;
+      }
+
+      .tagChip b {
+        font-weight: 700;
+      }
+
+      .tagChip span {
+        color: var(--muted);
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 138px;
+        border: 0;
+        outline: 0;
+        resize: vertical;
+        padding: 10px 12px 14px;
+        background: transparent;
+        color: var(--text);
+        font: inherit;
+        font-size: 16px;
+        line-height: 1.9;
+      }
+
+      .tableCard {
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: #fcfaf7;
+      }
+
+      .tableToolbar {
+        padding: 12px 14px;
+        background: #f7f1e8;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .tableTitle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 700;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+
+      thead th {
+        padding: 12px 14px;
+        text-align: left;
+        background: #f3ece1;
+        color: #5f513f;
+        border-bottom: 1px solid var(--line);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      tbody td {
+        padding: 14px;
+        border-bottom: 1px solid rgba(221, 209, 194, 0.75);
+        vertical-align: top;
+      }
+
+      .tierRow {
+        cursor: pointer;
+        background: #fffdf9;
+      }
+
+      .tierRow:hover {
+        background: #f6f2eb;
+      }
+
+      .tierRow.open {
+        background: #f4f7fc;
+      }
+
+      .minorRow {
+        background: #fcfbf8;
+      }
+
+      .minorRow td {
+        padding-top: 12px;
+        padding-bottom: 12px;
+        line-height: 1.65;
+      }
+
+      .col-kind {
+        width: 120px;
+      }
+
+      .col-name {
+        width: 220px;
+      }
+
+      .kindBadge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: #f7f2e8;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .kindBadge.minor {
+        background: #f2f6fb;
+      }
+
+      .realmName {
+        display: block;
+        font-size: 18px;
+        line-height: 1.35;
+        font-weight: 700;
+      }
+
+      .realmDesc {
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .minorRow .realmName {
+        font-size: 16px;
+      }
+
+      .minorRow .realmDesc {
+        font-size: 14px;
+      }
+
+      .hint {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .chipGroup {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .chip {
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #f7f2e8;
+        border: 1px solid var(--border);
+        font-size: 13px;
+      }
+
+      @media (max-width: 1080px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="panel sidebar">
+        <div class="titleRow">
+          <h1>境界体系</h1>
+          <span class="badge">3</span>
+        </div>
+
+        <div class="stack">
+          <button class="miniCard overviewMini active" type="button">
+            <strong>总览</strong>
+            <small>修行者先从凡胎踏入修行，再依次突破各大境界。</small>
+            <small>此卡只做总展示，不自动跳转编辑。</small>
+          </button>
+
+          <div class="cardList compactGap">
+            <button class="miniCard active" type="button">
+              <strong>炼气境</strong>
+              <small>吸纳灵气，洗练经脉，稳固根基。</small>
+              <small>小境界 2 个</small>
+            </button>
+            <button class="miniCard" type="button">
+              <strong>筑基境</strong>
+              <small>丹田初成，气海拓展，真元渐稳。</small>
+              <small>未划分小境界</small>
+            </button>
+            <button class="miniCard" type="button">
+              <strong>金丹境</strong>
+              <small>凝气成丹，灵力质变，神识初显。</small>
+              <small>小境界 3 个</small>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <section class="editorCard">
+          <div class="editorHead">
+            <div>
+              <h2>境界总览</h2>
+              <p>非编辑状态显示为长条词条，点击编辑后可直接改写总览内容。</p>
+            </div>
+            <button class="editButton" id="editBtn" type="button">编辑</button>
+          </div>
+
+          <div class="summaryBox" id="summaryBox">
+            <div class="summaryLabel">境界体系总览</div>
+            <div class="summaryView" id="summaryView">修行者先从凡胎踏入修行，再依次突破各大境界。</div>
+          </div>
+
+          <div style="height: 12px"></div>
+
+          <div class="tableCard">
+            <div class="tableToolbar">
+              <div class="tableTitle">总览表</div>
+              <div class="hint">展开行高统一，小境界按正式资料表展示</div>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th class="col-kind">境界</th>
+                  <th class="col-name">名称</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="tierRow open">
+                  <td><span class="kindBadge">大境界</span></td>
+                  <td><span class="realmName">炼气境</span></td>
+                  <td><span class="realmDesc">吸纳灵气，洗练经脉，稳固修行根基。</span></td>
+                </tr>
+                <tr class="minorRow">
+                  <td><span class="kindBadge minor">小境界</span></td>
+                  <td><span class="realmName">初期</span></td>
+                  <td><span class="realmDesc">刚入门，气息未稳，主要在于吸气与调息。</span></td>
+                </tr>
+                <tr class="minorRow">
+                  <td><span class="kindBadge minor">小境界</span></td>
+                  <td><span class="realmName">中期</span></td>
+                  <td><span class="realmDesc">经脉逐渐顺畅，灵气运转开始稳定。</span></td>
+                </tr>
+                <tr class="tierRow">
+                  <td><span class="kindBadge">大境界</span></td>
+                  <td><span class="realmName">筑基境</span></td>
+                  <td><span class="realmDesc">丹田稳固，真元成形，为后续突破铺路。</span></td>
+                </tr>
+                <tr class="tierRow open">
+                  <td><span class="kindBadge">大境界</span></td>
+                  <td><span class="realmName">金丹境</span></td>
+                  <td><span class="realmDesc">凝气成丹，灵力质变，战力和感知都明显提升。</span></td>
+                </tr>
+                <tr class="minorRow">
+                  <td><span class="kindBadge minor">小境界</span></td>
+                  <td><span class="realmName">一转</span></td>
+                  <td><span class="realmDesc">丹成初稳，力量尚未完全凝实。</span></td>
+                </tr>
+                <tr class="minorRow">
+                  <td><span class="kindBadge minor">小境界</span></td>
+                  <td><span class="realmName">二转</span></td>
+                  <td><span class="realmDesc">真元继续压缩，战斗持续力增强。</span></td>
+                </tr>
+                <tr class="minorRow">
+                  <td><span class="kindBadge minor">小境界</span></td>
+                  <td><span class="realmName">三转</span></td>
+                  <td><span class="realmDesc">丹体稳定，开始具备更强的突破条件。</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="editorCard" id="editPanel" style="display: none">
+          <div class="editorHead">
+            <div>
+              <h2>编辑状态示意</h2>
+            </div>
+            <button class="editButton active" type="button">完成</button>
+          </div>
+
+          <div class="summaryBox editing">
+            <div class="summaryLabel">境界体系总览</div>
+            <textarea>修行者先从凡胎踏入修行，再依次突破各大境界。</textarea>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script>
+      const editBtn = document.getElementById("editBtn");
+      const editPanel = document.getElementById("editPanel");
+      const summaryBox = document.getElementById("summaryBox");
+      const summaryView = document.getElementById("summaryView");
+      let editing = false;
+
+      function syncState() {
+        editBtn.textContent = editing ? "取消编辑" : "编辑";
+        editBtn.classList.toggle("active", editing);
+        editPanel.style.display = editing ? "grid" : "none";
+        summaryBox.style.display = editing ? "none" : "block";
+        summaryView.textContent = "修行者先从凡胎踏入修行，再依次突破各大境界。";
+      }
+
+      editBtn.addEventListener("click", () => {
+        editing = !editing;
+        syncState();
+      });
+
+      syncState();
+    </script>
+  </body>
+</html>

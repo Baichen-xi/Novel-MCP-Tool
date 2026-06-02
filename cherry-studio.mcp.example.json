@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "novel-cockpit": {
+      "command": "C:\\Users\\zero\\Desktop\\codex\\小说MCP工具\\backend\\dist\\novel-cockpit-mcp.exe",
+      "args": [],
+      "env": {
+        "NOVEL_COCKPIT_DB": "C:\\Users\\zero\\AppData\\Roaming\\local.novel.cockpit\\novel.db",
+        "PYTHONUTF8": "1",
+        "FASTMCP_SHOW_SERVER_BANNER": "false",
+        "FASTMCP_LOG_ENABLED": "false"
+      }
+    }
+  }
+}

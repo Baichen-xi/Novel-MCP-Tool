@@ -642,6 +642,54 @@ describe("MapWorkspace", () => {
     confirmSpy.mockRestore();
   });
 
+  it("binds unassigned group nodes to the new image after importing a picture", async () => {
+    const onSaveMap = vi.fn().mockResolvedValue({ id: 88 });
+    const onSaveNode = vi.fn().mockResolvedValue({ id: 31 });
+    const world = {
+      map_images: [],
+      map_nodes: [
+        {
+          id: 31,
+          map_image_id: null,
+          layer: "九重天",
+          name: "君临城",
+          type: "城市",
+          shape: "point",
+          x: 50,
+          y: 50,
+          description: "君家本家所在的核心圣城。",
+        },
+      ],
+    };
+
+    render(
+      <MapWorkspace
+        world={world}
+        saving={false}
+        onSaveNode={onSaveNode}
+        onDeleteNode={vi.fn()}
+        onDeleteMap={vi.fn()}
+        onSaveMap={onSaveMap}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /导入图片/ }));
+    fireEvent.click(screen.getByRole("button", { name: "保存地图" }));
+
+    await waitFor(() => {
+      expect(onSaveMap).toHaveBeenCalledWith(expect.objectContaining({ title: "九重天", layer: "九重天" }));
+      expect(onSaveNode).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 31,
+          name: "君临城",
+          map_image_id: 88,
+          layer: "九重天",
+        }),
+        31
+      );
+    });
+  });
+
   it("creates a manual map with scale metadata", async () => {
     const onSaveMap = vi.fn().mockResolvedValue({ id: 77 });
     const world = { map_images: [], map_nodes: [] };

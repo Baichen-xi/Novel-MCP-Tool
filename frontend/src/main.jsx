@@ -1584,6 +1584,8 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
   const maps = useMemo(() => buildMapAtlas(world), [world]);
   const viewportRef = useRef(null);
   const jsonInputRef = useRef(null);
+  const toolbarImageInputRef = useRef(null);
+  const mapImageEditPanelRef = useRef(null);
   const dragRef = useRef(null);
   const wheelHandlerRef = useRef(null);
   const [selectedMapId, setSelectedMapId] = useState(maps[0]?.id || "");
@@ -1624,6 +1626,15 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
     setEditing(false);
     setEditMessage("");
   }, [activeMap?.id]);
+
+  useEffect(() => {
+    if (!mapEditing) {
+      return;
+    }
+    window.setTimeout(() => {
+      mapImageEditPanelRef.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    }, 0);
+  }, [mapEditing]);
 
   const viewportSize = () => {
     const rect = viewportRef.current?.getBoundingClientRect();
@@ -1727,19 +1738,27 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
     setMapEditMessage(activeMap?.imageId ? "请选择本地图片，保存后会替换当前地图图片，节点和区域会保留。" : "请先选择本地图片，再填写这张地图的尺度与说明。");
   };
 
+  const triggerToolbarMapImageInput = () => {
+    startImportMapImage();
+    toolbarImageInputRef.current?.click();
+  };
+
   const setMapDraftField = (field, value) => {
     setMapDraft((current) => ({ ...current, [field]: value }));
   };
 
-  const handleMapFileChange = async (event) => {
-    const file = event.target.files?.[0];
+  const applySelectedMapFile = async (file, baseDraft = mapDraft) => {
     if (!file) {
       return;
     }
     const dataUrl = await fileToDataUrl(file);
     setMapDraft((current) => ({
+      ...baseDraft,
       ...current,
-      title: current.title === "新建地图" ? file.name.replace(/\.[^.]+$/, "") : current.title,
+      title:
+        current.title === "新建地图" || current.title === "导入地图图片"
+          ? file.name.replace(/\.[^.]+$/, "")
+          : current.title || baseDraft.title || file.name.replace(/\.[^.]+$/, ""),
       image_data: dataUrl,
       mime_type: file.type || "image/png",
       file_name: file.name,
@@ -1747,9 +1766,39 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
     setMapEditMessage(`已选择图片：${file.name}`);
   };
 
+  const handleToolbarMapFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    const baseDraft = mapImageDraft(activeMap || { title: "导入地图图片", layer: "世界", scaleKind: "世界" });
+    setMapDraft(baseDraft);
+    setMapEditing(true);
+    setEditing(false);
+    await applySelectedMapFile(file, baseDraft);
+  };
+
+  const handleMapFileChange = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    await applySelectedMapFile(file);
+  };
+
   const saveMapDraft = async () => {
+    const shouldBindCurrentGroup = !mapDraft.image_id && !activeMap?.imageId && nodes.length > 0;
     const savedMap = mapDraft.image_id ? await onUpdateMap(mapDraft.image_id, mapDraft, "浏览器导入或替换地图图片") : await onSaveMap(mapDraft);
     if (savedMap?.id) {
+      if (shouldBindCurrentGroup) {
+        for (const node of nodes) {
+          await onSaveNode(
+            {
+              ...mapNodeDraft(node, { ...activeMap, imageId: savedMap.id }),
+              map_image_id: savedMap.id,
+              layer: node.layer || mapDraft.layer,
+              plane: node.plane || mapDraft.title,
+            },
+            node.id
+          );
+        }
+      }
       setSelectedMapId(`image-${savedMap.id}`);
       setMapEditing(false);
       setMapEditMessage("");
@@ -1974,10 +2023,11 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
               <button className="ghostButton" type="button" onClick={resetCamera} disabled={saving}>
                 复位
               </button>
-              <button className="ghostButton" type="button" onClick={startImportMapImage} disabled={saving}>
+              <button className="ghostButton" type="button" onClick={triggerToolbarMapImageInput} disabled={saving}>
                 <Upload size={16} />
                 导入图片
               </button>
+              <input ref={toolbarImageInputRef} className="hiddenFileInput" type="file" accept="image/*" onChange={handleToolbarMapFileChange} />
               <button className="ghostButton" type="button" onClick={exportActiveMapJson} disabled={saving || !activeMap}>
                 导出JSON
               </button>
@@ -2113,7 +2163,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
 
         <article className="editorCard mapDetailCard">
           {mapEditing ? (
-            <section className="mapEditPanel mapImageEditPanel">
+            <section className="mapEditPanel mapImageEditPanel" ref={mapImageEditPanelRef}>
               <div className="sectionHeader">
                 <h3>手动添加地图</h3>
                 <p>{mapEditMessage || "地图会直接保存到当前作品的世界图册。"}</p>

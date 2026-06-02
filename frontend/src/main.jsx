@@ -407,6 +407,11 @@ function rgbCss(value, alpha = 1, fallback = "120,146,185") {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+function rgbHex(value, fallback = "120,146,185") {
+  const [r, g, b] = rgbParts(value, fallback);
+  return `#${[r, g, b].map((part) => Math.round(part).toString(16).padStart(2, "0")).join("")}`;
+}
+
 function mapAreaColorStyle(node, active = false, hasImage = false) {
   const color = normalizeRgbColor(node?.color || "", "");
   if (!color) {
@@ -416,6 +421,30 @@ function mapAreaColorStyle(node, active = false, hasImage = false) {
     fill: rgbCss(color, active ? (hasImage ? 0.16 : 0.3) : hasImage ? 0.1 : 0.22),
     stroke: active ? "#8a3f34" : rgbCss(color, 0.9),
   };
+}
+
+function MapColorControl({ value, onChange, inputClassName = "mapInlineInput" }) {
+  const normalized = normalizeRgbColor(value, "120,146,185");
+  return (
+    <div className="mapColorControl">
+      <input
+        className={inputClassName}
+        value={normalizeRgbColor(value, normalized)}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="120,146,185"
+        aria-label="区域颜色"
+      />
+      <label className="mapColorPicker" title="选择区域颜色">
+        <span className="mapColorSwatch" style={{ background: rgbCss(normalized, 1), borderColor: rgbCss(normalized, 0.9) }} aria-hidden="true" />
+        <input
+          type="color"
+          aria-label="选择区域颜色"
+          value={rgbHex(normalized)}
+          onChange={(event) => onChange(normalizeRgbColor(event.target.value, normalized))}
+        />
+      </label>
+    </div>
+  );
 }
 
 function mapNodeDraft(node = {}, map = {}) {
@@ -429,7 +458,7 @@ function mapNodeDraft(node = {}, map = {}) {
     plane: node.plane || "",
     parent_name: node.parent_name || "",
     faction: node.faction || "",
-    color: normalizeRgbColor(node.color || "", ""),
+    color: normalizeNodeShape(node.shape) === "polygon" ? normalizeRgbColor(node.color || "", "120,146,185") : "",
     x: node.x ?? 50,
     y: node.y ?? 50,
     description: node.description || "",
@@ -646,7 +675,7 @@ function draftToMapNodePayload(draft) {
     parent_name: draft.parent_name.trim(),
     description: draft.description.trim(),
     faction: draft.faction.trim(),
-    color: shape === "polygon" ? normalizeRgbColor(draft.color, "") : "",
+    color: shape === "polygon" ? normalizeRgbColor(draft.color, "120,146,185") : "",
     x: clamp(numberOr(draft.x, 50), 0, 100),
     y: clamp(numberOr(draft.y, 50), 0, 100),
     polygon_points: shape === "polygon" ? parsePolygonPoints(draft.polygon_points_text) : [],
@@ -2459,20 +2488,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                       <div className="kv">
                         <span>区域颜色</span>
                         {editing && draft.id ? (
-                          <div className="mapColorControl">
-                            <input
-                              className="mapInlineInput"
-                              value={draft.color}
-                              onChange={(event) => setDraftField("color", event.target.value)}
-                              placeholder="120,146,185"
-                              aria-label="区域颜色"
-                            />
-                            <span
-                              className="mapColorSwatch"
-                              style={{ background: rgbCss(draft.color, 1), borderColor: rgbCss(draft.color, 0.9) }}
-                              aria-hidden="true"
-                            />
-                          </div>
+                          <MapColorControl value={draft.color} onChange={(value) => setDraftField("color", value)} />
                         ) : (
                           <div className="mapColorReadout">
                             <span
@@ -2594,14 +2610,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                   <>
                     <label>
                       <span>区域颜色</span>
-                      <span className="mapColorControl">
-                        <input value={draft.color} onChange={(event) => setDraftField("color", event.target.value)} placeholder="120,146,185" />
-                        <span
-                          className="mapColorSwatch"
-                          style={{ background: rgbCss(draft.color, 1), borderColor: rgbCss(draft.color, 0.9) }}
-                          aria-hidden="true"
-                        />
-                      </span>
+                      <MapColorControl value={draft.color} onChange={(value) => setDraftField("color", value)} inputClassName="" />
                     </label>
                     <label className="spanTwo">
                       <span>多边形坐标</span>

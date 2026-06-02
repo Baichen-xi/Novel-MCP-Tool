@@ -696,7 +696,7 @@ describe("MapWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "编辑区域" }));
     expect(screen.getByRole("button", { name: "删除区域" })).toBeInTheDocument();
     fireEvent.change(screen.getByDisplayValue("青岚洲"), { target: { value: "青岚古洲" } });
-    fireEvent.change(screen.getByLabelText("区域颜色"), { target: { value: "220,80,60" } });
+    fireEvent.change(screen.getByLabelText("选择区域颜色"), { target: { value: "#6a845f" } });
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() => {
@@ -704,7 +704,7 @@ describe("MapWorkspace", () => {
         expect.objectContaining({
           id: 31,
           name: "青岚古洲",
-          color: "220,80,60",
+          color: "106,132,95",
           polygon_points_text: "8, 22\n32, 12\n36, 40",
         }),
         31

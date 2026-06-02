@@ -413,13 +413,12 @@ function rgbHex(value, fallback = "120,146,185") {
 }
 
 function mapAreaColorStyle(node, active = false, hasImage = false) {
-  const color = normalizeRgbColor(node?.color || "", "");
-  if (!color) {
-    return undefined;
-  }
+  const color = normalizeRgbColor(node?.color || "", "120,146,185");
   return {
-    fill: rgbCss(color, active ? (hasImage ? 0.16 : 0.3) : hasImage ? 0.1 : 0.22),
-    stroke: active ? "#8a3f34" : rgbCss(color, 0.9),
+    fill: rgbCss(color, active ? (hasImage ? 0.18 : 0.34) : hasImage ? 0.1 : 0.22),
+    stroke: rgbCss(color, active ? 1 : 0.9),
+    strokeWidth: active ? 9 : 6,
+    filter: active ? "drop-shadow(0 0 10px rgba(55, 44, 31, 0.24))" : undefined,
   };
 }
 
@@ -1652,6 +1651,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
   const wheelHandlerRef = useRef(null);
   const [selectedMapId, setSelectedMapId] = useState(baseMaps[0]?.id || "");
   const [selectedNodeId, setSelectedNodeId] = useState("");
+  const [highlightedNodeId, setHighlightedNodeId] = useState("");
   const [camera, setCamera] = useState({ x: 0, y: 0, w: MAP_SCENE.width, h: MAP_SCENE.height });
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(() => mapNodeDraft({}, baseMaps[0]));
@@ -1704,18 +1704,35 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
   useEffect(() => {
     if (!nodes.length) {
       setSelectedNodeId("");
+      setHighlightedNodeId("");
       return;
     }
     if (!nodes.some((node) => node.id === selectedNodeId)) {
       setSelectedNodeId(nodes[0].id);
     }
-  }, [nodes, selectedNodeId]);
+    if (highlightedNodeId && !nodes.some((node) => node.id === highlightedNodeId)) {
+      setHighlightedNodeId("");
+    }
+  }, [nodes, selectedNodeId, highlightedNodeId]);
 
   useEffect(() => {
     setCamera({ x: 0, y: 0, w: MAP_SCENE.width, h: MAP_SCENE.height });
     setEditing(false);
     setEditMessage("");
+    setHighlightedNodeId("");
   }, [activeMap?.id]);
+
+  useEffect(() => {
+    const clearHighlight = (event) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest(".mapArea, .mapNode")) {
+        return;
+      }
+      setHighlightedNodeId("");
+    };
+    document.addEventListener("pointerdown", clearHighlight);
+    return () => document.removeEventListener("pointerdown", clearHighlight);
+  }, []);
 
   useEffect(() => {
     if (!mapEditing) {
@@ -1822,6 +1839,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
   const startNewMap = () => {
     setMapDraft(mapImageDraft({ title: "新建地图", layer: "世界", scaleKind: "世界" }));
     setSelectedMapId(draftMapId);
+    setHighlightedNodeId("");
     setMapEditing(true);
     setEditing(false);
     setMapEditMessage("正在新建地图，可先填写资料，也可选择图片。");
@@ -1829,6 +1847,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
 
   const selectMap = (mapId) => {
     setSelectedMapId(mapId);
+    setHighlightedNodeId("");
     setEditing(false);
     if (mapId !== selectedMapId) {
       setMapEditing(false);
@@ -1924,6 +1943,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
         }
       }
       setSelectedMapId(`image-${savedMap.id}`);
+      setHighlightedNodeId("");
       setMapEditing(false);
       setMapEditMessage("");
       setMapDraft(mapImageDraft());
@@ -1950,6 +1970,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
     const savedNode = await onSaveNode(draft, draft.id);
     if (savedNode?.id) {
       setSelectedNodeId(savedNode.id);
+      setHighlightedNodeId("");
       setDraft(mapNodeDraft(savedNode, activeMap));
     }
     if (draft.id) {
@@ -1967,6 +1988,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
     const deleted = await onDeleteNode(selectedNode);
     if (deleted) {
       setSelectedNodeId("");
+      setHighlightedNodeId("");
       setEditing(false);
       setEditMessage("");
     }
@@ -1980,6 +2002,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
     if (deleted) {
       setSelectedMapId("");
       setSelectedNodeId("");
+      setHighlightedNodeId("");
       setEditing(false);
       setEditMessage("");
     }
@@ -2018,6 +2041,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
         await onSaveNode({ ...nodeDraft, map_image_id: savedMap.id }, null);
       }
       setSelectedMapId(`image-${savedMap.id}`);
+      setHighlightedNodeId("");
       setMapEditing(false);
       setEditing(false);
       setMapEditMessage(`已导入 JSON：${file.name}`);
@@ -2030,13 +2054,14 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
     if (event.button !== 0) {
       return;
     }
+    setHighlightedNodeId("");
     dragRef.current = {
       pointerId: event.pointerId,
       x: event.clientX,
       y: event.clientY,
       camera,
     };
-    event.currentTarget.setPointerCapture(event.pointerId);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
   };
 
   const onViewportPointerMove = (event) => {
@@ -2228,7 +2253,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                     const points = (node.polygon_points || []).map(pointToScene);
                     const pointText = points.map((point) => `${point.x},${point.y}`).join(" ");
                     const center = pointToScene({ x: node.x, y: node.y });
-                    const active = node.id === selectedNode?.id;
+                    const active = node.id === highlightedNodeId;
                     return (
                       <g
                         key={node.id}
@@ -2236,6 +2261,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                         onPointerDown={(event) => event.stopPropagation()}
                         onClick={() => {
                           setSelectedNodeId(node.id);
+                          setHighlightedNodeId(node.id);
                           setEditing(false);
                         }}
                       >
@@ -2266,7 +2292,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                 <g className="mapNodeLayer">
                   {pointNodes.map((node) => {
                     const point = pointToScene(node);
-                    const active = node.id === selectedNode?.id;
+                    const active = node.id === highlightedNodeId;
                     return (
                       <g
                         key={node.id}
@@ -2275,6 +2301,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                         onPointerDown={(event) => event.stopPropagation()}
                         onClick={() => {
                           setSelectedNodeId(node.id);
+                          setHighlightedNodeId(node.id);
                           setEditing(false);
                         }}
                       >

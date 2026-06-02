@@ -1254,13 +1254,13 @@ textarea:focus-visible {
 }
 
 .mapArea.active polygon {
-  fill: rgba(157, 91, 73, 0.27);
-  stroke: var(--danger);
+  stroke-width: 9;
+  filter: drop-shadow(0 0 10px rgba(55, 44, 31, 0.24));
 }
 
 .mapViewport.hasImage .mapArea.active polygon {
-  fill: rgba(157, 91, 73, 0.12);
-  stroke: #8a3f34;
+  stroke-width: 9;
+  filter: drop-shadow(0 0 10px rgba(55, 44, 31, 0.24));
 }
 
 .mapArea text {

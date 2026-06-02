@@ -800,6 +800,110 @@ describe("MapWorkspace", () => {
     expect(container.querySelector(".mapNodeLayer")).not.toBeNull();
   });
 
+  it("highlights selected areas with their own color and clears highlight on map blank clicks", () => {
+    const world = {
+      map_images: [{ id: 12, title: "四域总览", layer: "世界", scale_kind: "总览" }],
+      map_nodes: [
+        {
+          id: 31,
+          map_image_id: 12,
+          name: "青岚洲",
+          type: "区域",
+          shape: "polygon",
+          color: "120,146,185",
+          x: 22,
+          y: 32,
+          polygon_points: [
+            { x: 8, y: 22 },
+            { x: 32, y: 12 },
+            { x: 36, y: 40 },
+          ],
+        },
+      ],
+    };
+
+    const { container } = render(
+      <MapWorkspace
+        world={world}
+        saving={false}
+        onSaveNode={vi.fn()}
+        onDeleteNode={vi.fn()}
+        onDeleteMap={vi.fn()}
+        onSaveMap={vi.fn()}
+      />
+    );
+
+    const area = container.querySelector(".mapArea");
+    const polygon = container.querySelector(".mapArea polygon");
+    expect(area).not.toHaveClass("active");
+
+    fireEvent.click(area);
+    expect(area).toHaveClass("active");
+    expect(polygon.style.stroke).toBe("rgb(120, 146, 185)");
+    expect(polygon.style.stroke).not.toBe("rgb(138, 63, 52)");
+
+    fireEvent.pointerDown(container.querySelector(".mapViewport"), { button: 0 });
+    expect(area).not.toHaveClass("active");
+    expect(polygon.style.strokeWidth).toBe("6");
+  });
+
+  it("renders the updated area color after map node save refreshes world data", async () => {
+    const onSaveNode = vi.fn().mockResolvedValue({ id: 31, name: "青岚洲", color: "106,132,95" });
+    const baseWorld = {
+      map_images: [{ id: 12, title: "四域总览", layer: "世界", scale_kind: "总览" }],
+      map_nodes: [
+        {
+          id: 31,
+          map_image_id: 12,
+          name: "青岚洲",
+          type: "区域",
+          shape: "polygon",
+          color: "120,146,185",
+          x: 22,
+          y: 32,
+          polygon_points: [
+            { x: 8, y: 22 },
+            { x: 32, y: 12 },
+            { x: 36, y: 40 },
+          ],
+        },
+      ],
+    };
+
+    const { container, rerender } = render(
+      <MapWorkspace
+        world={baseWorld}
+        saving={false}
+        onSaveNode={onSaveNode}
+        onDeleteNode={vi.fn()}
+        onDeleteMap={vi.fn()}
+        onSaveMap={vi.fn()}
+      />
+    );
+
+    expect(container.querySelector(".mapArea polygon").style.stroke).toBe("rgba(120, 146, 185, 0.9)");
+    fireEvent.click(screen.getByRole("button", { name: "编辑区域" }));
+    fireEvent.change(screen.getByLabelText("选择区域颜色"), { target: { value: "#6a845f" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => {
+      expect(onSaveNode).toHaveBeenCalledWith(expect.objectContaining({ color: "106,132,95" }), 31);
+    });
+
+    rerender(
+      <MapWorkspace
+        world={{ ...baseWorld, map_nodes: [{ ...baseWorld.map_nodes[0], color: "106,132,95" }] }}
+        saving={false}
+        onSaveNode={onSaveNode}
+        onDeleteNode={vi.fn()}
+        onDeleteMap={vi.fn()}
+        onSaveMap={vi.fn()}
+      />
+    );
+
+    expect(container.querySelector(".mapArea polygon").style.stroke).toBe("rgba(106, 132, 95, 0.9)");
+  });
+
   it("allows deleting generated unassigned-node groups by removing their nodes", async () => {
     const onDeleteMap = vi.fn().mockResolvedValue(true);
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);

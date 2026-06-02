@@ -335,6 +335,26 @@ function pointToScene(point) {
   };
 }
 
+function pointInPolygon(point, polygonPoints = []) {
+  if (!point || !Array.isArray(polygonPoints) || polygonPoints.length < 3) {
+    return false;
+  }
+  let inside = false;
+  for (let i = 0, j = polygonPoints.length - 1; i < polygonPoints.length; j = i++) {
+    const current = polygonPoints[i] || {};
+    const previous = polygonPoints[j] || {};
+    const xi = numberOr(current.x, 0);
+    const yi = numberOr(current.y, 0);
+    const xj = numberOr(previous.x, 0);
+    const yj = numberOr(previous.y, 0);
+    const intersects = yi > point.y !== yj > point.y && point.x < ((xj - xi) * (point.y - yi)) / ((yj - yi) || 1) + xi;
+    if (intersects) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 function formatPolygonPoints(points = []) {
   if (!Array.isArray(points)) {
     return "";
@@ -415,10 +435,10 @@ function rgbHex(value, fallback = "120,146,185") {
 function mapAreaColorStyle(node, active = false, hasImage = false) {
   const color = normalizeRgbColor(node?.color || "", "120,146,185");
   return {
-    fill: rgbCss(color, active ? (hasImage ? 0.18 : 0.34) : hasImage ? 0.1 : 0.22),
-    stroke: rgbCss(color, active ? 1 : 0.9),
+    fill: rgbCss(color, active ? 0.18 : 0.08),
+    stroke: rgbCss(color, active ? 0.96 : 0.78),
     strokeWidth: active ? 9 : 6,
-    filter: active ? "drop-shadow(0 0 10px rgba(55, 44, 31, 0.24))" : undefined,
+    filter: active ? `drop-shadow(0 0 10px ${rgbCss(color, 0.34)})` : undefined,
   };
 }
 
@@ -1748,6 +1768,16 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
     return { width: rect?.width || 960, height: rect?.height || 600 };
   };
 
+  const eventToPercentPoint = (event) => {
+    const rect = viewportRef.current?.getBoundingClientRect();
+    const size = viewportSize();
+    const left = rect?.left || 0;
+    const top = rect?.top || 0;
+    const sceneX = camera.x + ((event.clientX - left) / size.width) * camera.w;
+    const sceneY = camera.y + ((event.clientY - top) / size.height) * camera.h;
+    return { x: sceneToPercent(sceneX, "x"), y: sceneToPercent(sceneY, "y") };
+  };
+
   const clampCamera = (next) => {
     const w = clamp(next.w, MAP_SCENE.width / 5, MAP_SCENE.width);
     const h = clamp(next.h, MAP_SCENE.height / 5, MAP_SCENE.height);
@@ -2108,6 +2138,18 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
   const selectedIsArea = Boolean(selectedNode && normalizeNodeShape(selectedNode.shape) === "polygon");
   const hasMapImage = Boolean(activeMap?.imageId && activeMap?.imageData && activeMap.imageData !== EMPTY_MAP_IMAGE_DATA);
 
+  const selectPolygonAtEvent = (event, fallbackNode) => {
+    event.stopPropagation();
+    const point = eventToPercentPoint(event);
+    const matchedNodes = polygonNodes.filter((node) => pointInPolygon(point, node.polygon_points || []));
+    const candidates = matchedNodes.length ? matchedNodes : [fallbackNode];
+    const currentIndex = candidates.findIndex((node) => node.id === highlightedNodeId);
+    const nextNode = currentIndex >= 0 ? candidates[(currentIndex + 1) % candidates.length] : fallbackNode;
+    setSelectedNodeId(nextNode.id);
+    setHighlightedNodeId(nextNode.id);
+    setEditing(false);
+  };
+
   return (
     <main className="workspace mapWorkspace">
       <aside className="characterListPanel mapAtlasPanel">
@@ -2259,11 +2301,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                         key={node.id}
                         className={active ? "mapArea active" : "mapArea"}
                         onPointerDown={(event) => event.stopPropagation()}
-                        onClick={() => {
-                          setSelectedNodeId(node.id);
-                          setHighlightedNodeId(node.id);
-                          setEditing(false);
-                        }}
+                        onClick={(event) => selectPolygonAtEvent(event, node)}
                       >
                         <polygon points={pointText} style={mapAreaColorStyle(node, active, hasMapImage)} />
                         <text x={center.x} y={center.y}>{node.name}</text>

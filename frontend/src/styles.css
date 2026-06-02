@@ -1220,47 +1220,27 @@ textarea:focus-visible {
 }
 
 .mapArea polygon {
-  fill: rgba(120, 146, 185, 0.2);
-  stroke: rgba(104, 128, 170, 0.84);
+  fill: rgba(120, 146, 185, 0.08);
+  stroke: rgba(120, 146, 185, 0.78);
   stroke-width: 6;
   stroke-linejoin: round;
   stroke-linecap: round;
   transition: fill 0.15s ease, stroke 0.15s ease;
 }
 
-.mapArea:nth-child(2n) polygon {
-  fill: rgba(116, 149, 112, 0.22);
-  stroke: rgba(96, 127, 89, 0.85);
-}
-
-.mapArea:nth-child(3n) polygon {
-  fill: rgba(186, 115, 110, 0.18);
-  stroke: rgba(161, 90, 86, 0.86);
-}
-
 .mapViewport.hasImage .mapArea polygon {
   fill: rgba(120, 146, 185, 0.08);
-  stroke: rgba(52, 74, 112, 0.9);
-}
-
-.mapViewport.hasImage .mapArea:nth-child(2n) polygon {
-  fill: rgba(116, 149, 112, 0.08);
-  stroke: rgba(54, 91, 52, 0.9);
-}
-
-.mapViewport.hasImage .mapArea:nth-child(3n) polygon {
-  fill: rgba(186, 115, 110, 0.08);
-  stroke: rgba(126, 52, 48, 0.9);
+  stroke: rgba(120, 146, 185, 0.78);
 }
 
 .mapArea.active polygon {
   stroke-width: 9;
-  filter: drop-shadow(0 0 10px rgba(55, 44, 31, 0.24));
+  filter: drop-shadow(0 0 10px rgba(55, 44, 31, 0.2));
 }
 
 .mapViewport.hasImage .mapArea.active polygon {
   stroke-width: 9;
-  filter: drop-shadow(0 0 10px rgba(55, 44, 31, 0.24));
+  filter: drop-shadow(0 0 10px rgba(55, 44, 31, 0.2));
 }
 
 .mapArea text {

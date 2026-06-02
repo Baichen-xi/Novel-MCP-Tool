@@ -839,12 +839,72 @@ describe("MapWorkspace", () => {
 
     fireEvent.click(area);
     expect(area).toHaveClass("active");
-    expect(polygon.style.stroke).toBe("rgb(120, 146, 185)");
+    expect(polygon.style.stroke).toBe("rgba(120, 146, 185, 0.96)");
     expect(polygon.style.stroke).not.toBe("rgb(138, 63, 52)");
 
     fireEvent.pointerDown(container.querySelector(".mapViewport"), { button: 0 });
     expect(area).not.toHaveClass("active");
     expect(polygon.style.strokeWidth).toBe("6");
+  });
+
+  it("cycles selection between overlapping map areas without keeping the previous area highlighted", () => {
+    const world = {
+      map_images: [{ id: 12, title: "重叠区域", layer: "世界", scale_kind: "总览" }],
+      map_nodes: [
+        {
+          id: 31,
+          map_image_id: 12,
+          name: "区域一",
+          type: "区域",
+          shape: "polygon",
+          color: "106,132,95",
+          x: 48,
+          y: 48,
+          polygon_points: [
+            { x: 30, y: 30 },
+            { x: 64, y: 30 },
+            { x: 64, y: 64 },
+            { x: 30, y: 64 },
+          ],
+        },
+        {
+          id: 32,
+          map_image_id: 12,
+          name: "区域二",
+          type: "区域",
+          shape: "polygon",
+          color: "186,115,110",
+          x: 56,
+          y: 56,
+          polygon_points: [
+            { x: 42, y: 42 },
+            { x: 72, y: 42 },
+            { x: 72, y: 72 },
+            { x: 42, y: 72 },
+          ],
+        },
+      ],
+    };
+
+    const { container } = render(
+      <MapWorkspace
+        world={world}
+        saving={false}
+        onSaveNode={vi.fn()}
+        onDeleteNode={vi.fn()}
+        onDeleteMap={vi.fn()}
+        onSaveMap={vi.fn()}
+      />
+    );
+
+    const areas = container.querySelectorAll(".mapArea");
+    fireEvent.click(areas[1], { clientX: 480, clientY: 300 });
+    expect(areas[1]).toHaveClass("active");
+    expect(areas[0]).not.toHaveClass("active");
+
+    fireEvent.click(areas[1], { clientX: 480, clientY: 300 });
+    expect(areas[0]).toHaveClass("active");
+    expect(areas[1]).not.toHaveClass("active");
   });
 
   it("renders the updated area color after map node save refreshes world data", async () => {
@@ -881,7 +941,7 @@ describe("MapWorkspace", () => {
       />
     );
 
-    expect(container.querySelector(".mapArea polygon").style.stroke).toBe("rgba(120, 146, 185, 0.9)");
+    expect(container.querySelector(".mapArea polygon").style.stroke).toBe("rgba(120, 146, 185, 0.78)");
     fireEvent.click(screen.getByRole("button", { name: "编辑区域" }));
     fireEvent.change(screen.getByLabelText("选择区域颜色"), { target: { value: "#6a845f" } });
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
@@ -901,7 +961,7 @@ describe("MapWorkspace", () => {
       />
     );
 
-    expect(container.querySelector(".mapArea polygon").style.stroke).toBe("rgba(106, 132, 95, 0.9)");
+    expect(container.querySelector(".mapArea polygon").style.stroke).toBe("rgba(106, 132, 95, 0.78)");
   });
 
   it("allows deleting generated unassigned-node groups by removing their nodes", async () => {

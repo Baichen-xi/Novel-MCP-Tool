@@ -598,6 +598,112 @@ describe("MapWorkspace", () => {
     confirmSpy.mockRestore();
   });
 
+  it("shows polygon vertices for selected areas and edits details inline", async () => {
+    const onSaveNode = vi.fn().mockResolvedValue({ id: 31, name: "青岚洲" });
+    const world = {
+      map_images: [
+        {
+          id: 12,
+          title: "四域总览",
+          layer: "世界",
+          scale_kind: "总览",
+          image_data: "data:image/png;base64,AAAA",
+          mime_type: "image/png",
+        },
+      ],
+      map_nodes: [
+        {
+          id: 31,
+          map_image_id: 12,
+          name: "青岚洲",
+          type: "区域",
+          shape: "polygon",
+          layer: "世界",
+          faction: "青岚盟",
+          x: 22,
+          y: 32,
+          description: "西北侧灵脉丰饶的大陆。",
+          polygon_points: [
+            { x: 8, y: 22 },
+            { x: 32, y: 12 },
+            { x: 36, y: 40 },
+          ],
+        },
+      ],
+    };
+
+    render(
+      <MapWorkspace
+        world={world}
+        saving={false}
+        onSaveNode={onSaveNode}
+        onDeleteNode={vi.fn()}
+        onDeleteMap={vi.fn()}
+        onSaveMap={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("选中区域")).toBeInTheDocument();
+    expect(screen.getByText("顶点 1: x 8，y 22")).toBeInTheDocument();
+    expect(screen.getByText("顶点 2: x 32，y 12")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑" }));
+    fireEvent.change(screen.getByDisplayValue("青岚洲"), { target: { value: "青岚古洲" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => {
+      expect(onSaveNode).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 31,
+          name: "青岚古洲",
+          polygon_points_text: "8, 22\n32, 12\n36, 40",
+        }),
+        31
+      );
+    });
+  });
+
+  it("treats polygon records without vertices as areas in the detail panel", () => {
+    const world = {
+      map_images: [
+        {
+          id: 12,
+          title: "四域总览",
+          layer: "世界",
+          scale_kind: "总览",
+        },
+      ],
+      map_nodes: [
+        {
+          id: 32,
+          map_image_id: 12,
+          name: "未定边界区域",
+          type: "区域",
+          shape: "polygon",
+          faction: "青岚盟",
+          x: 50,
+          y: 50,
+          polygon_points: [],
+        },
+      ],
+    };
+
+    render(
+      <MapWorkspace
+        world={world}
+        saving={false}
+        onSaveNode={vi.fn()}
+        onDeleteNode={vi.fn()}
+        onDeleteMap={vi.fn()}
+        onSaveMap={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("选中区域")).toBeInTheDocument();
+    expect(screen.getByText("还没有记录区域顶点。")).toBeInTheDocument();
+    expect(screen.queryByText("位置")).not.toBeInTheDocument();
+  });
+
   it("allows deleting generated unassigned-node groups by removing their nodes", async () => {
     const onDeleteMap = vi.fn().mockResolvedValue(true);
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
@@ -686,6 +792,70 @@ describe("MapWorkspace", () => {
           layer: "九重天",
         }),
         31
+      );
+    });
+  });
+
+  it("reads a selected map image file and saves it without dropping existing map data", async () => {
+    const onUpdateMap = vi.fn().mockResolvedValue({ id: 12 });
+    const world = {
+      map_images: [
+        {
+          id: 12,
+          title: "东玄道域",
+          layer: "区域",
+          scale_kind: "区域",
+          real_width: 800,
+          real_height: 600,
+          distance_unit: "万里",
+          image_data: "",
+          mime_type: "image/png",
+        },
+      ],
+      map_nodes: [
+        {
+          id: 31,
+          map_image_id: 12,
+          name: "天元宗",
+          type: "宗门",
+          shape: "point",
+          x: 42,
+          y: 38,
+        },
+      ],
+    };
+
+    const { container } = render(
+      <MapWorkspace
+        world={world}
+        saving={false}
+        onSaveNode={vi.fn()}
+        onDeleteNode={vi.fn()}
+        onDeleteMap={vi.fn()}
+        onSaveMap={vi.fn()}
+        onUpdateMap={onUpdateMap}
+      />
+    );
+
+    const fileInput = container.querySelector('input[type="file"][accept="image/*"]');
+    const file = new File(["fake image"], "测试地图.png", { type: "image/png" });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByText("已选择图片：测试地图.png")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "保存地图" }));
+
+    await waitFor(() => {
+      expect(onUpdateMap).toHaveBeenCalledWith(
+        12,
+        expect.objectContaining({
+          image_id: 12,
+          title: "东玄道域",
+          image_data: expect.stringMatching(/^data:image\/png;base64,/),
+        }),
+        "浏览器导入或替换地图图片"
       );
     });
   });

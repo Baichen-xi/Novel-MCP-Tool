@@ -1113,6 +1113,18 @@ textarea:focus-visible {
   border-color: #bd7f6e;
 }
 
+.mapClearImageButton {
+  color: #5f5142;
+  background: #f5eadc;
+  border-color: #d8c3a6;
+}
+
+.mapClearImageButton:hover {
+  color: #473b31;
+  background: #efe0cc;
+  border-color: #c8a984;
+}
+
 .mapViewport {
   position: relative;
   overflow: hidden;
@@ -1137,6 +1149,11 @@ textarea:focus-visible {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0));
   opacity: 0.55;
   pointer-events: none;
+}
+
+.mapViewport.hasImage::before,
+.mapViewport.hasImage::after {
+  display: none;
 }
 
 .mapViewport::after {
@@ -1168,7 +1185,7 @@ textarea:focus-visible {
 }
 
 .mapBackgroundImage {
-  opacity: 0.42;
+  opacity: 1;
 }
 
 .minorGridLine {
@@ -1200,9 +1217,29 @@ textarea:focus-visible {
   stroke: rgba(161, 90, 86, 0.86);
 }
 
+.mapViewport.hasImage .mapArea polygon {
+  fill: rgba(120, 146, 185, 0.08);
+  stroke: rgba(52, 74, 112, 0.9);
+}
+
+.mapViewport.hasImage .mapArea:nth-child(2n) polygon {
+  fill: rgba(116, 149, 112, 0.08);
+  stroke: rgba(54, 91, 52, 0.9);
+}
+
+.mapViewport.hasImage .mapArea:nth-child(3n) polygon {
+  fill: rgba(186, 115, 110, 0.08);
+  stroke: rgba(126, 52, 48, 0.9);
+}
+
 .mapArea.active polygon {
   fill: rgba(157, 91, 73, 0.27);
   stroke: var(--danger);
+}
+
+.mapViewport.hasImage .mapArea.active polygon {
+  fill: rgba(157, 91, 73, 0.12);
+  stroke: #8a3f34;
 }
 
 .mapArea text {
@@ -1338,6 +1375,56 @@ textarea:focus-visible {
   background: linear-gradient(180deg, #fbf8f1, #f4ede3);
   border: 1px solid var(--border);
   border-radius: 14px;
+}
+
+.mapInfoCard.editing {
+  background: linear-gradient(180deg, #fbf3ef, #f6ebe5);
+  border-color: rgba(157, 91, 73, 0.38);
+}
+
+.mapInlineInput,
+.mapInlineTextarea {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 10px;
+  color: var(--text);
+  background: rgba(251, 248, 241, 0.88);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+}
+
+.mapInlineTextarea {
+  min-height: 88px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.mapInlinePair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.vertexList {
+  display: grid;
+  gap: 5px;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.inlineSaveBar {
+  margin-top: 4px;
+}
+
+.inlineSaveNotice {
+  margin: 0;
+  padding: 8px 10px;
+  color: #5c6f4f;
+  background: rgba(229, 239, 219, 0.72);
+  border: 1px solid rgba(112, 139, 96, 0.3);
+  border-radius: 10px;
+  font-weight: 700;
 }
 
 .mapEditPanel {

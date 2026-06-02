@@ -1828,7 +1828,12 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
       setSelectedNodeId(savedNode.id);
       setDraft(mapNodeDraft(savedNode, activeMap));
     }
-    setEditMessage("已保存");
+    if (draft.id) {
+      setEditing(false);
+      setEditMessage("已保存地图信息。");
+    } else {
+      setEditMessage("已保存");
+    }
   };
 
   const deleteSelectedNode = async () => {
@@ -1949,9 +1954,10 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
     ? activeMap.realWidth * (camera.w / MAP_SCENE.width) * (SCALE_BAR_TARGET_PX / viewportWidth)
     : 0;
   const polygonNodes = nodes.filter((node) => normalizeNodeShape(node.shape) === "polygon" && node.polygon_points?.length);
-  const pointNodes = nodes.filter((node) => !(normalizeNodeShape(node.shape) === "polygon" && node.polygon_points?.length));
+  const pointNodes = nodes.filter((node) => normalizeNodeShape(node.shape) !== "polygon" || !node.polygon_points?.length);
   const routePairs = pointNodes.slice(0, 8).flatMap((node, index, list) => (list[index + 1] ? [[node, list[index + 1]]] : []));
-  const selectedIsArea = Boolean(selectedNode && normalizeNodeShape(selectedNode.shape) === "polygon" && selectedNode.polygon_points?.length);
+  const selectedIsArea = Boolean(selectedNode && normalizeNodeShape(selectedNode.shape) === "polygon");
+  const hasMapImage = Boolean(activeMap?.imageId && activeMap?.imageData && activeMap.imageData !== EMPTY_MAP_IMAGE_DATA);
 
   return (
     <main className="workspace mapWorkspace">
@@ -2034,8 +2040,8 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
               <button className={editing ? "dangerButton mapEditButton active" : "dangerButton mapEditButton"} type="button" onClick={startEditing} disabled={saving}>
                 编辑
               </button>
-              {activeMap?.imageId ? (
-                <button className="dangerButton mapDeleteButton" type="button" onClick={clearActiveMapImage} disabled={saving}>
+              {hasMapImage ? (
+                <button className="ghostButton mapClearImageButton" type="button" onClick={clearActiveMapImage} disabled={saving}>
                   <Trash2 size={16} />
                   删除图片
                 </button>
@@ -2050,7 +2056,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
           </div>
 
           <div
-            className="mapViewport"
+            className={activeMap?.imageSrc ? "mapViewport hasImage" : "mapViewport"}
             ref={viewportRef}
             onPointerDown={onViewportPointerDown}
             onPointerMove={onViewportPointerMove}
@@ -2272,31 +2278,142 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
               </div>
             </section>
 
-            <section className="mapInfoCard">
+            <section className={editing && draft.id ? "mapInfoCard editing" : "mapInfoCard"}>
               <div className="panelTitle">
                 <h3>{selectedIsArea ? "选中区域" : "选中节点"}</h3>
                 <span className="chip">{selectedNode?.type || "未选中"}</span>
               </div>
+              {editMessage && !editing ? <p className="inlineSaveNotice">{editMessage}</p> : null}
               {selectedNode ? (
                 <>
                   <div className="keyValueList">
                     <div className="kv">
                       <span>名称</span>
-                      <strong>{selectedNode.name}</strong>
+                      {editing && draft.id ? (
+                        <input className="mapInlineInput" value={draft.name} onChange={(event) => setDraftField("name", event.target.value)} />
+                      ) : (
+                        <strong>{selectedNode.name}</strong>
+                      )}
                     </div>
+                    {!selectedIsArea || editing ? (
+                      <div className="kv">
+                        <span>{selectedIsArea ? "中心位置" : "位置"}</span>
+                        {editing && draft.id ? (
+                          <div className="mapInlinePair">
+                            <input
+                              className="mapInlineInput"
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                              value={draft.x}
+                              onChange={(event) => setDraftField("x", event.target.value)}
+                              aria-label="横向坐标 x"
+                            />
+                            <input
+                              className="mapInlineInput"
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                              value={draft.y}
+                              onChange={(event) => setDraftField("y", event.target.value)}
+                              aria-label="纵向坐标 y"
+                            />
+                          </div>
+                        ) : (
+                          <strong>
+                            x {selectedNode.x ?? "-"}，y {selectedNode.y ?? "-"}
+                          </strong>
+                        )}
+                      </div>
+                    ) : null}
                     <div className="kv">
-                      <span>位置</span>
-                      <strong>
-                        x {selectedNode.x ?? "-"}，y {selectedNode.y ?? "-"}
-                      </strong>
+                      <span>类型</span>
+                      {editing && draft.id ? (
+                        <input className="mapInlineInput" value={draft.type} onChange={(event) => setDraftField("type", event.target.value)} />
+                      ) : (
+                        <div>{selectedNode.type || "未记录"}</div>
+                      )}
                     </div>
                     <div className="kv">
                       <span>{selectedIsArea ? "所属势力" : "所属范围"}</span>
-                      <div>{selectedNode.faction || selectedNode.layer || "未记录"}</div>
+                      {editing && draft.id ? (
+                        <input className="mapInlineInput" value={draft.faction} onChange={(event) => setDraftField("faction", event.target.value)} />
+                      ) : (
+                        <div>{selectedNode.faction || selectedNode.layer || "未记录"}</div>
+                      )}
                     </div>
+                    {selectedIsArea ? (
+                      <div className="kv">
+                        <span>区域顶点</span>
+                        {editing && draft.id ? (
+                          <textarea
+                            className="mapInlineTextarea"
+                            value={draft.polygon_points_text}
+                            onChange={(event) => setDraftField("polygon_points_text", event.target.value)}
+                            placeholder={"每行一个点：x, y\n例如：20, 30\n45, 25\n60, 50"}
+                          />
+                        ) : (
+                          <div className="vertexList">
+                            {(selectedNode.polygon_points || []).length ? (
+                              (selectedNode.polygon_points || []).map((point, index) => (
+                                <span key={`${selectedNode.id}-vertex-${index}`}>
+                                  顶点 {index + 1}: x {point.x}，y {point.y}
+                                </span>
+                              ))
+                            ) : (
+                              <span>还没有记录区域顶点。</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
+                    {editing && draft.id ? (
+                      <div className="kv">
+                        <span>层级 / 地图</span>
+                        <input className="mapInlineInput" value={draft.layer} onChange={(event) => setDraftField("layer", event.target.value)} />
+                      </div>
+                    ) : null}
+                    {editing && draft.id ? (
+                      <div className="kv">
+                        <span>上级 / 父级</span>
+                        <input className="mapInlineInput" value={draft.parent_name} onChange={(event) => setDraftField("parent_name", event.target.value)} />
+                      </div>
+                    ) : null}
+                    {editing && draft.id ? (
+                      <div className="kv">
+                        <span>形状</span>
+                        <select className="mapInlineInput" value={draft.shape} onChange={(event) => setDraftField("shape", event.target.value)}>
+                          <option value="point">点位</option>
+                          <option value="polygon">范围多边形</option>
+                        </select>
+                      </div>
+                    ) : null}
+                    {editing && draft.id ? (
+                      <div className="kv">
+                        <span>位面 / 分区</span>
+                        <input className="mapInlineInput" value={draft.plane} onChange={(event) => setDraftField("plane", event.target.value)} />
+                      </div>
+                    ) : null}
+                    {editing && draft.id && draft.shape === "polygon" && !selectedIsArea ? (
+                      <div className="kv">
+                        <span>区域顶点</span>
+                        <textarea
+                          className="mapInlineTextarea"
+                          value={draft.polygon_points_text}
+                          onChange={(event) => setDraftField("polygon_points_text", event.target.value)}
+                          placeholder={"每行一个点：x, y\n例如：20, 30\n45, 25\n60, 50"}
+                        />
+                      </div>
+                    ) : null}
                     <div className="kv">
                       <span>说明</span>
-                      <div>{selectedNode.description || "还没有说明。"}</div>
+                      {editing && draft.id ? (
+                        <textarea className="mapInlineTextarea" value={draft.description} onChange={(event) => setDraftField("description", event.target.value)} />
+                      ) : (
+                        <div>{selectedNode.description || "还没有说明。"}</div>
+                      )}
                     </div>
                   </div>
                   <div className="tags">
@@ -2308,6 +2425,16 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                         </span>
                       ))}
                   </div>
+                  {editing && draft.id ? (
+                    <div className="saveBar inlineSaveBar">
+                      <button className="ghostButton" type="button" onClick={() => setEditing(false)} disabled={saving}>
+                        取消
+                      </button>
+                      <button className="saveButton" type="button" onClick={saveDraft} disabled={saving || !draft.name.trim()}>
+                        保存
+                      </button>
+                    </div>
+                  ) : null}
                 </>
               ) : (
                 <p className="note">点击地图中的节点查看详情。</p>
@@ -2315,7 +2442,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
             </section>
           </div>
 
-          {editing ? (
+          {editing && !draft.id ? (
             <section className="mapEditPanel">
               <div className="sectionHeader">
                 <h3>{draft.id ? "手动编辑节点" : "手动新增节点"}</h3>

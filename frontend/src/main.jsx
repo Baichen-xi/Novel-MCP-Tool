@@ -372,6 +372,52 @@ function parsePolygonPoints(value) {
     .filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y));
 }
 
+function normalizeRgbColor(value, fallback = "") {
+  const text = String(value || "").trim();
+  if (!text) {
+    return fallback;
+  }
+  const hex = text.match(/^#?([0-9a-fA-F]{6})$/);
+  if (hex) {
+    const raw = hex[1];
+    return [raw.slice(0, 2), raw.slice(2, 4), raw.slice(4, 6)].map((part) => parseInt(part, 16)).join(",");
+  }
+  const parts = text
+    .split(/[，,\s]+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length < 3) {
+    return fallback;
+  }
+  const rgb = parts.slice(0, 3).map((part) => clamp(Math.round(numberOr(part, NaN)), 0, 255));
+  if (rgb.some((part) => !Number.isFinite(part))) {
+    return fallback;
+  }
+  return rgb.join(",");
+}
+
+function rgbParts(value, fallback = "120,146,185") {
+  return normalizeRgbColor(value, fallback)
+    .split(",")
+    .map((part) => numberOr(part, 0));
+}
+
+function rgbCss(value, alpha = 1, fallback = "120,146,185") {
+  const [r, g, b] = rgbParts(value, fallback);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function mapAreaColorStyle(node, active = false, hasImage = false) {
+  const color = normalizeRgbColor(node?.color || "", "");
+  if (!color) {
+    return undefined;
+  }
+  return {
+    fill: rgbCss(color, active ? (hasImage ? 0.16 : 0.3) : hasImage ? 0.1 : 0.22),
+    stroke: active ? "#8a3f34" : rgbCss(color, 0.9),
+  };
+}
+
 function mapNodeDraft(node = {}, map = {}) {
   return {
     id: node.id || null,
@@ -383,6 +429,7 @@ function mapNodeDraft(node = {}, map = {}) {
     plane: node.plane || "",
     parent_name: node.parent_name || "",
     faction: node.faction || "",
+    color: normalizeRgbColor(node.color || "", ""),
     x: node.x ?? 50,
     y: node.y ?? 50,
     description: node.description || "",
@@ -464,6 +511,7 @@ function mapImportTemplate() {
         parent_name: "",
         description: "区域说明",
         faction: "所属势力",
+        color: "120,146,185",
         x: 30,
         y: 40,
         polygon_points: [
@@ -516,6 +564,7 @@ function mapToExportJson(map = {}) {
       parent_name: node.parent_name || "",
       description: node.description || "",
       faction: node.faction || "",
+      color: normalizeRgbColor(node.color || "", ""),
       x: clamp(numberOr(node.x, 50), 0, 100),
       y: clamp(numberOr(node.y, 50), 0, 100),
       polygon_points: normalizeNodeShape(node.shape) === "polygon" ? node.polygon_points || [] : [],
@@ -550,6 +599,7 @@ function normalizeImportedMapJson(input = {}) {
     parent_name: String(node.parent_name || node.parentName || ""),
     description: String(node.description || ""),
     faction: String(node.faction || ""),
+    color: normalizeRgbColor(node.color || node.color_rgb || node.rgb || "", ""),
     x: clamp(numberOr(node.x, 50), 0, 100),
     y: clamp(numberOr(node.y, 50), 0, 100),
     polygon_points_text: formatPolygonPoints(node.polygon_points || node.polygonPoints || []),
@@ -596,6 +646,7 @@ function draftToMapNodePayload(draft) {
     parent_name: draft.parent_name.trim(),
     description: draft.description.trim(),
     faction: draft.faction.trim(),
+    color: shape === "polygon" ? normalizeRgbColor(draft.color, "") : "",
     x: clamp(numberOr(draft.x, 50), 0, 100),
     y: clamp(numberOr(draft.y, 50), 0, 100),
     polygon_points: shape === "polygon" ? parsePolygonPoints(draft.polygon_points_text) : [],
@@ -2096,6 +2147,23 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
             </div>
           </div>
 
+          <div className="mapLayerSwitches" aria-label="地图显示控制">
+            <button
+              type="button"
+              className={showAreas ? "mapLayerButton active" : "mapLayerButton inactive"}
+              onClick={() => setShowAreas((value) => !value)}
+              aria-pressed={showAreas}
+            >
+              势力范围
+            </button>
+            <button type="button" className="mapLayerButton displayOnly" aria-disabled="true">
+              路线
+            </button>
+            <button type="button" className="mapLayerButton displayOnly" aria-disabled="true">
+              节点
+            </button>
+          </div>
+
           <div
             className={activeMap?.imageSrc ? "mapViewport hasImage" : "mapViewport"}
             ref={viewportRef}
@@ -2142,7 +2210,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                           setEditing(false);
                         }}
                       >
-                        <polygon points={pointText} />
+                        <polygon points={pointText} style={mapAreaColorStyle(node, active, hasMapImage)} />
                         <text x={center.x} y={center.y}>{node.name}</text>
                       </g>
                     );
@@ -2189,17 +2257,6 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                 </g>
               ) : null}
             </svg>
-            <div className="mapLayerSwitches">
-              <button type="button" className={showAreas ? "mapLayerButton active" : "mapLayerButton"} onClick={() => setShowAreas((value) => !value)}>
-                势力范围
-              </button>
-              <button type="button" className={showRoutes ? "mapLayerButton active" : "mapLayerButton"} onClick={() => setShowRoutes((value) => !value)}>
-                路线
-              </button>
-              <button type="button" className={showNodes ? "mapLayerButton active" : "mapLayerButton"} onClick={() => setShowNodes((value) => !value)}>
-                节点
-              </button>
-            </div>
             <div className="mapScaleHud">
               <div className="scaleBarLine" style={{ width: SCALE_BAR_TARGET_PX }} />
               <strong>{scaleDistance ? formatDistance(scaleDistance, activeMap?.distanceUnit || "里") : "未设定比例"}</strong>
@@ -2388,14 +2445,46 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                         )}
                       </div>
                     ) : null}
-                    <div className="kv">
-                      <span>{selectedIsArea ? "所属势力" : "所属范围"}</span>
-                      {editing && draft.id ? (
-                        <input className="mapInlineInput" value={draft.faction} onChange={(event) => setDraftField("faction", event.target.value)} />
-                      ) : (
-                        <div>{selectedNode.faction || selectedNode.layer || "未记录"}</div>
-                      )}
-                    </div>
+                    {selectedIsArea || (editing && draft.id && draft.shape === "polygon") ? (
+                      <div className="kv">
+                        <span>所属势力</span>
+                        {editing && draft.id ? (
+                          <input className="mapInlineInput" value={draft.faction} onChange={(event) => setDraftField("faction", event.target.value)} />
+                        ) : (
+                          <div>{selectedNode.faction || "未记录"}</div>
+                        )}
+                      </div>
+                    ) : null}
+                    {selectedIsArea || (editing && draft.id && draft.shape === "polygon") ? (
+                      <div className="kv">
+                        <span>区域颜色</span>
+                        {editing && draft.id ? (
+                          <div className="mapColorControl">
+                            <input
+                              className="mapInlineInput"
+                              value={draft.color}
+                              onChange={(event) => setDraftField("color", event.target.value)}
+                              placeholder="120,146,185"
+                              aria-label="区域颜色"
+                            />
+                            <span
+                              className="mapColorSwatch"
+                              style={{ background: rgbCss(draft.color, 1), borderColor: rgbCss(draft.color, 0.9) }}
+                              aria-hidden="true"
+                            />
+                          </div>
+                        ) : (
+                          <div className="mapColorReadout">
+                            <span
+                              className="mapColorSwatch"
+                              style={{ background: rgbCss(selectedNode.color, 1), borderColor: rgbCss(selectedNode.color, 0.9) }}
+                              aria-hidden="true"
+                            />
+                            <strong>{normalizeRgbColor(selectedNode.color, "120,146,185")}</strong>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
                     {selectedIsArea ? (
                       <div className="kv">
                         <span>区域顶点</span>
@@ -2450,15 +2539,6 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                       )}
                     </div>
                   </div>
-                  <div className="tags">
-                    {[selectedNode.layer, normalizeNodeShape(selectedNode.shape) === "polygon" ? "范围" : "点位"]
-                      .filter(Boolean)
-                      .map((tag) => (
-                        <span className="tag" key={`${selectedNode.id}-${tag}`}>
-                          {tag}
-                        </span>
-                      ))}
-                  </div>
                   {editing && draft.id ? (
                     <div className="saveBar inlineSaveBar">
                       <button className="dangerButton" type="button" onClick={deleteSelectedNode} disabled={saving} aria-label={selectedIsArea ? "删除区域" : "删除节点"}>
@@ -2511,14 +2591,27 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                   <input type="number" min="0" max="100" step="0.1" value={draft.y} onChange={(event) => setDraftField("y", event.target.value)} />
                 </label>
                 {draft.shape === "polygon" ? (
-                  <label className="spanTwo">
-                    <span>多边形坐标</span>
-                    <textarea
-                      value={draft.polygon_points_text}
-                      onChange={(event) => setDraftField("polygon_points_text", event.target.value)}
-                      placeholder={"每行一个点：x, y\n例如：20, 30\n45, 25\n60, 50\n30, 65"}
-                    />
-                  </label>
+                  <>
+                    <label>
+                      <span>区域颜色</span>
+                      <span className="mapColorControl">
+                        <input value={draft.color} onChange={(event) => setDraftField("color", event.target.value)} placeholder="120,146,185" />
+                        <span
+                          className="mapColorSwatch"
+                          style={{ background: rgbCss(draft.color, 1), borderColor: rgbCss(draft.color, 0.9) }}
+                          aria-hidden="true"
+                        />
+                      </span>
+                    </label>
+                    <label className="spanTwo">
+                      <span>多边形坐标</span>
+                      <textarea
+                        value={draft.polygon_points_text}
+                        onChange={(event) => setDraftField("polygon_points_text", event.target.value)}
+                        placeholder={"每行一个点：x, y\n例如：20, 30\n45, 25\n60, 50\n30, 65"}
+                      />
+                    </label>
+                  </>
                 ) : null}
                 <label className="spanTwo">
                   <span>说明</span>

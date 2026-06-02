@@ -304,11 +304,12 @@ def test_character_change_history_can_rollback():
 def test_direct_map_node_update_changes_world_state():
     dashboard = init_project(ProjectInit(map_nodes=[{"name": "天元宗", "type": "宗门", "x": 20, "y": 30}]))
     node_id = dashboard["world"]["map_nodes"][0]["id"]
-    result = update_map_node_direct(node_id, {"name": "天元剑宗", "x": 45, "description": "东洲剑修祖庭"})
+    result = update_map_node_direct(node_id, {"name": "天元剑宗", "x": 45, "description": "东洲剑修祖庭", "color": "120,146,185"})
     assert result["mode"] == "applied"
     assert result["map_node"]["name"] == "天元剑宗"
     assert result["map_node"]["x"] == 45
     assert result["map_node"]["description"] == "东洲剑修祖庭"
+    assert result["map_node"]["color"] == "120,146,185"
 
 
 def test_delete_map_node_removes_only_target_node():
@@ -475,6 +476,47 @@ def test_approving_world_change_with_null_parent_name_maps_nodes_successfully():
     result = approve_change(change["id"])
     assert result["status"] == "approved"
     assert any(node["name"] == "主位面" and node["parent_name"] == "" for node in result["dashboard"]["world"]["map_nodes"])
+
+
+def test_map_node_color_survives_project_init_world_update_and_export():
+    dashboard = init_project(
+        ProjectInit(
+            title="区域颜色项目",
+            map_nodes=[
+                {
+                    "name": "青岚洲",
+                    "type": "区域",
+                    "shape": "polygon",
+                    "faction": "青岚盟",
+                    "color": "120,146,185",
+                    "polygon_points": [{"x": 8, "y": 22}, {"x": 32, "y": 12}, {"x": 36, "y": 40}],
+                }
+            ],
+        )
+    )
+    first_node = dashboard["world"]["map_nodes"][0]
+    assert first_node["color"] == "120,146,185"
+    assert first_node["shape"] == "polygon"
+
+    change = propose_world_update(
+        {
+            "map_nodes": [
+                {
+                    "name": "赤霄岭",
+                    "type": "区域",
+                    "shape": "polygon",
+                    "color": "180,80,60",
+                    "polygon_points": [{"x": 40, "y": 42}, {"x": 58, "y": 38}, {"x": 62, "y": 55}],
+                }
+            ]
+        },
+        "补充区域颜色",
+    )["change"]
+    approve_change(change["id"])
+
+    nodes = {node["name"]: node for node in export_project()["map_nodes"]}
+    assert nodes["青岚洲"]["color"] == "120,146,185"
+    assert nodes["赤霄岭"]["color"] == "180,80,60"
 
 
 def test_direct_lore_entry_update_changes_context_pack():

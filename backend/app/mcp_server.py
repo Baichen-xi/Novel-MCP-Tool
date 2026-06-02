@@ -125,6 +125,7 @@ PAYLOAD_TEMPLATES: dict[str, Any] = {
         "parent_name": "上级节点",
         "description": "地点说明",
         "faction": "所属势力",
+        "color": "120,146,185",
         "x": 50,
         "y": 50,
         "polygon_points": [{"x": 40, "y": 40}, {"x": 60, "y": 40}, {"x": 60, "y": 60}, {"x": 40, "y": 60}],

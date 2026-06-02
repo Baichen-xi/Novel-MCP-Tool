@@ -163,6 +163,7 @@ MAP_NODE_ALIASES = {
     "parent_name": ("上级", "父节点", "所属"),
     "description": ("描述", "说明"),
     "faction": ("势力", "归属"),
+    "color": ("颜色", "区域颜色", "势力颜色", "RGB", "rgb"),
     "polygon_points": ("多边形点", "顶点", "范围点", "点集"),
 }
 
@@ -384,6 +385,7 @@ class MapNodeCreate(BaseModel):
     parent_name: str = ""
     description: str = ""
     faction: str = ""
+    color: str = ""
     x: float = 50
     y: float = 50
     polygon_points: list[dict[str, Any]] = Field(default_factory=list)

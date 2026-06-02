@@ -264,6 +264,7 @@ MAP_NODE_COLUMNS = {
     "parent_name",
     "description",
     "faction",
+    "color",
     "x",
     "y",
     "polygon_points",
@@ -407,7 +408,7 @@ def normalize_map_node_geometry(node: dict[str, Any]) -> dict[str, Any]:
     if shape in {"area", "region", "zone", "polygon"}:
         shape = "polygon"
     prepared["shape"] = shape or "point"
-    for key in ("name", "type", "layer", "plane", "parent_name", "description", "faction"):
+    for key in ("name", "type", "layer", "plane", "parent_name", "description", "faction", "color"):
         value = prepared.get(key)
         prepared[key] = "" if value in (None, "") else str(value)
     points = prepared.get("polygon_points")
@@ -1007,8 +1008,8 @@ def init_project(payload: ProjectInit) -> dict[str, Any]:
             prepared = map_node_storage_payload(node)
             conn.execute(
                 """
-                INSERT INTO map_nodes (project_id, map_image_id, layer, plane, name, type, shape, parent_name, description, faction, x, y, polygon_points_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO map_nodes (project_id, map_image_id, layer, plane, name, type, shape, parent_name, description, faction, color, x, y, polygon_points_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(project_id, name) DO UPDATE SET
                     map_image_id = excluded.map_image_id,
                     layer = excluded.layer,
@@ -1018,6 +1019,7 @@ def init_project(payload: ProjectInit) -> dict[str, Any]:
                     parent_name = excluded.parent_name,
                     description = excluded.description,
                     faction = excluded.faction,
+                    color = excluded.color,
                     x = excluded.x,
                     y = excluded.y,
                     polygon_points_json = excluded.polygon_points_json,
@@ -1034,6 +1036,7 @@ def init_project(payload: ProjectInit) -> dict[str, Any]:
                     prepared.get("parent_name", ""),
                     prepared.get("description", ""),
                     prepared.get("faction", ""),
+                    prepared.get("color", ""),
                     float(prepared.get("x", 0)),
                     float(prepared.get("y", 0)),
                     prepared.get("polygon_points_json", "[]"),
@@ -1595,8 +1598,8 @@ def create_map_node(payload: MapNodeCreate) -> dict[str, Any]:
         node = map_node_storage_payload(payload.model_dump())
         conn.execute(
             """
-            INSERT INTO map_nodes (project_id, map_image_id, layer, plane, name, type, shape, parent_name, description, faction, x, y, polygon_points_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO map_nodes (project_id, map_image_id, layer, plane, name, type, shape, parent_name, description, faction, color, x, y, polygon_points_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(project_id, name) DO UPDATE SET
                 map_image_id = excluded.map_image_id,
                 layer = excluded.layer,
@@ -1606,6 +1609,7 @@ def create_map_node(payload: MapNodeCreate) -> dict[str, Any]:
                 parent_name = excluded.parent_name,
                 description = excluded.description,
                 faction = excluded.faction,
+                color = excluded.color,
                 x = excluded.x,
                 y = excluded.y,
                 polygon_points_json = excluded.polygon_points_json,
@@ -1622,6 +1626,7 @@ def create_map_node(payload: MapNodeCreate) -> dict[str, Any]:
                 node.get("parent_name", ""),
                 node.get("description", ""),
                 node.get("faction", ""),
+                node.get("color", ""),
                 float(node.get("x", 0)),
                 float(node.get("y", 0)),
                 node.get("polygon_points_json", "[]"),
@@ -1742,7 +1747,7 @@ def update_map_node_direct(node_id: int, patch: dict[str, Any], reason: str = "ä
         prepared = map_node_storage_payload({**normalize_row(row), **allowed})
         assignments = []
         values: list[Any] = []
-        for key in ("map_image_id", "layer", "plane", "name", "type", "shape", "parent_name", "description", "faction", "x", "y", "polygon_points_json"):
+        for key in ("map_image_id", "layer", "plane", "name", "type", "shape", "parent_name", "description", "faction", "color", "x", "y", "polygon_points_json"):
             assignments.append(f"{key} = ?")
             if key == "map_image_id":
                 value = prepared.get(key)
@@ -1978,8 +1983,8 @@ def apply_world_patch(conn: Any, patch: dict[str, Any], reason: str, source: str
         prepared = map_node_storage_payload(node)
         conn.execute(
             """
-            INSERT INTO map_nodes (project_id, map_image_id, layer, plane, name, type, shape, parent_name, description, faction, x, y, polygon_points_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO map_nodes (project_id, map_image_id, layer, plane, name, type, shape, parent_name, description, faction, color, x, y, polygon_points_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(project_id, name) DO UPDATE SET
                 map_image_id = excluded.map_image_id,
                 layer = excluded.layer,
@@ -1989,6 +1994,7 @@ def apply_world_patch(conn: Any, patch: dict[str, Any], reason: str, source: str
                 parent_name = excluded.parent_name,
                 description = excluded.description,
                 faction = excluded.faction,
+                color = excluded.color,
                 x = excluded.x,
                 y = excluded.y,
                 polygon_points_json = excluded.polygon_points_json,
@@ -2005,6 +2011,7 @@ def apply_world_patch(conn: Any, patch: dict[str, Any], reason: str, source: str
                 prepared.get("parent_name", ""),
                 prepared.get("description", ""),
                 prepared.get("faction", ""),
+                prepared.get("color", ""),
                 float(prepared.get("x", 0)),
                 float(prepared.get("y", 0)),
                 prepared.get("polygon_points_json", "[]"),
@@ -2084,24 +2091,29 @@ def list_change_history(limit: int = 50) -> list[dict[str, Any]]:
 
 
 def restore_map_node(conn: Any, snapshot: dict[str, Any]) -> None:
+    prepared = map_node_storage_payload(snapshot)
     conn.execute(
         """
         UPDATE map_nodes
-        SET map_image_id = ?, layer = ?, plane = ?, name = ?, type = ?, parent_name = ?, description = ?, faction = ?, x = ?, y = ?,
+        SET map_image_id = ?, layer = ?, plane = ?, name = ?, type = ?, shape = ?, parent_name = ?,
+            description = ?, faction = ?, color = ?, x = ?, y = ?, polygon_points_json = ?,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
         """,
         (
-            snapshot.get("map_image_id"),
-            snapshot.get("layer", ""),
-            snapshot.get("plane", ""),
-            snapshot.get("name", ""),
-            snapshot.get("type", "place"),
-            snapshot.get("parent_name", ""),
-            snapshot.get("description", ""),
-            snapshot.get("faction", ""),
-            float(snapshot.get("x", 0)),
-            float(snapshot.get("y", 0)),
+            prepared.get("map_image_id"),
+            prepared.get("layer", ""),
+            prepared.get("plane", ""),
+            prepared.get("name", ""),
+            prepared.get("type", "place"),
+            prepared.get("shape", "point"),
+            prepared.get("parent_name", ""),
+            prepared.get("description", ""),
+            prepared.get("faction", ""),
+            prepared.get("color", ""),
+            float(prepared.get("x", 0)),
+            float(prepared.get("y", 0)),
+            prepared.get("polygon_points_json", "[]"),
             snapshot["id"],
         ),
     )

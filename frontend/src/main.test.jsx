@@ -11,6 +11,7 @@ import {
   characterDraft,
   draftToFactionPatch,
   draftToMapImagePayload,
+  draftToMapNodePayload,
   draftToPowerSystemPatch,
   factionDraft,
   isAliveStatus,
@@ -411,6 +412,7 @@ describe("MapWorkspace", () => {
     const template = mapImportTemplate();
     expect(template.map_image.title).toBe("示例地图名称");
     expect(template.map_nodes[0].polygon_points).toHaveLength(4);
+    expect(template.map_nodes[0].color).toBe("120,146,185");
 
     const imported = normalizeImportedMapJson({
       version: 1,
@@ -428,6 +430,7 @@ describe("MapWorkspace", () => {
           name: "青岚洲",
           type: "区域",
           shape: "polygon",
+          color: "300, 20, 40",
           x: 22.1,
           y: 32.6,
           polygon_points: [
@@ -449,6 +452,7 @@ describe("MapWorkspace", () => {
     expect(imported.nodeDrafts[0]).toMatchObject({
       name: "青岚洲",
       shape: "polygon",
+      color: "255,20,40",
       x: 22.1,
       y: 32.6,
       polygon_points_text: "8, 22\n32, 12",
@@ -489,6 +493,41 @@ describe("MapWorkspace", () => {
     });
     expect(exported.map_nodes[0]).toMatchObject({ name: "天元宗", x: 42, y: 38 });
     expect(exported.map_nodes[0].id).toBeUndefined();
+  });
+
+  it("keeps polygon area colors in map node payloads and JSON export", () => {
+    expect(
+      draftToMapNodePayload({
+        name: "青岚洲",
+        type: "区域",
+        shape: "polygon",
+        map_image_id: 12,
+        layer: "世界",
+        plane: "四域总览",
+        parent_name: "",
+        description: "青岚盟范围。",
+        faction: "青岚盟",
+        color: "256, 12, 30",
+        x: 30,
+        y: 40,
+        polygon_points_text: "8, 22\n32, 12\n36, 40",
+      })
+    ).toMatchObject({
+      name: "青岚洲",
+      shape: "polygon",
+      color: "255,12,30",
+      polygon_points: [
+        { x: 8, y: 22 },
+        { x: 32, y: 12 },
+        { x: 36, y: 40 },
+      ],
+    });
+
+    const exported = mapToExportJson({
+      title: "四域总览",
+      nodes: [{ name: "青岚洲", shape: "polygon", color: "#7892b9", x: 30, y: 40, polygon_points: [] }],
+    });
+    expect(exported.map_nodes[0].color).toBe("120,146,185");
   });
 
   it("shows a delete map button for real atlas images and delegates full map deletion", async () => {
@@ -621,6 +660,7 @@ describe("MapWorkspace", () => {
           shape: "polygon",
           layer: "世界",
           faction: "青岚盟",
+          color: "120,146,185",
           x: 22,
           y: 32,
           description: "西北侧灵脉丰饶的大陆。",
@@ -647,12 +687,16 @@ describe("MapWorkspace", () => {
     expect(screen.getByText("选中区域")).toBeInTheDocument();
     expect(screen.getByText("顶点 1: x 8，y 22")).toBeInTheDocument();
     expect(screen.getByText("顶点 2: x 32，y 12")).toBeInTheDocument();
+    expect(screen.getByText("区域颜色")).toBeInTheDocument();
+    expect(screen.getByText("120,146,185")).toBeInTheDocument();
     expect(screen.queryByText("secret_realm")).not.toBeInTheDocument();
+    expect(screen.queryByText("所属范围")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "删除区域" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "编辑区域" }));
     expect(screen.getByRole("button", { name: "删除区域" })).toBeInTheDocument();
     fireEvent.change(screen.getByDisplayValue("青岚洲"), { target: { value: "青岚古洲" } });
+    fireEvent.change(screen.getByLabelText("区域颜色"), { target: { value: "220,80,60" } });
     fireEvent.click(screen.getByRole("button", { name: "保存" }));
 
     await waitFor(() => {
@@ -660,6 +704,7 @@ describe("MapWorkspace", () => {
         expect.objectContaining({
           id: 31,
           name: "青岚古洲",
+          color: "220,80,60",
           polygon_points_text: "8, 22\n32, 12\n36, 40",
         }),
         31
@@ -706,6 +751,53 @@ describe("MapWorkspace", () => {
     expect(screen.getByText("选中区域")).toBeInTheDocument();
     expect(screen.getByText("还没有记录区域顶点。")).toBeInTheDocument();
     expect(screen.queryByText("位置")).not.toBeInTheDocument();
+  });
+
+  it("toggles only area visibility from the map layer toolbar", () => {
+    const world = {
+      map_images: [{ id: 12, title: "四域总览", layer: "世界", scale_kind: "总览" }],
+      map_nodes: [
+        {
+          id: 31,
+          map_image_id: 12,
+          name: "青岚洲",
+          type: "区域",
+          shape: "polygon",
+          x: 22,
+          y: 32,
+          polygon_points: [
+            { x: 8, y: 22 },
+            { x: 32, y: 12 },
+            { x: 36, y: 40 },
+          ],
+        },
+        { id: 32, map_image_id: 12, name: "黑水城", type: "城市", shape: "point", x: 55, y: 45 },
+      ],
+    };
+
+    const { container } = render(
+      <MapWorkspace
+        world={world}
+        saving={false}
+        onSaveNode={vi.fn()}
+        onDeleteNode={vi.fn()}
+        onDeleteMap={vi.fn()}
+        onSaveMap={vi.fn()}
+      />
+    );
+
+    expect(container.querySelector(".mapPolygonLayer")).not.toBeNull();
+    expect(container.querySelector(".mapNodeLayer")).not.toBeNull();
+
+    const areaButton = screen.getByRole("button", { name: "势力范围" });
+    fireEvent.click(areaButton);
+    expect(container.querySelector(".mapPolygonLayer")).toBeNull();
+    expect(container.querySelector(".mapNodeLayer")).not.toBeNull();
+    expect(areaButton).toHaveClass("inactive");
+
+    fireEvent.click(screen.getByRole("button", { name: "路线" }));
+    fireEvent.click(screen.getByRole("button", { name: "节点" }));
+    expect(container.querySelector(".mapNodeLayer")).not.toBeNull();
   });
 
   it("allows deleting generated unassigned-node groups by removing their nodes", async () => {

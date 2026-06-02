@@ -7,6 +7,7 @@ import {
   CharacterEditor,
   FactionEditor,
   MapWorkspace,
+  buildMapAtlas,
   characterDraft,
   draftToFactionPatch,
   draftToMapImagePayload,
@@ -746,6 +747,47 @@ describe("MapWorkspace", () => {
       );
     });
     confirmSpy.mockRestore();
+  });
+
+  it("keeps unbound map nodes grouped by layer even when real maps exist", () => {
+    const maps = buildMapAtlas({
+      map_images: [
+        {
+          id: 12,
+          title: "世界",
+          layer: "世界",
+          scale_kind: "世界",
+        },
+      ],
+      map_nodes: [
+        {
+          id: 31,
+          map_image_id: null,
+          layer: "九重天",
+          name: "君临城",
+          type: "城市",
+        },
+        {
+          id: 32,
+          map_image_id: null,
+          layer: "归墟层",
+          name: "混沌归墟",
+          type: "区域",
+        },
+        {
+          id: 33,
+          map_image_id: 12,
+          layer: "世界",
+          name: "已绑定节点",
+          type: "地点",
+        },
+      ],
+    });
+
+    expect(maps.map((map) => map.title)).toEqual(["世界", "九重天", "归墟层"]);
+    expect(maps.find((map) => map.title === "九重天").nodes).toHaveLength(1);
+    expect(maps.find((map) => map.title === "归墟层").nodes).toHaveLength(1);
+    expect(maps.some((map) => map.title === "未分配资料节点")).toBe(false);
   });
 
   it("binds unassigned group nodes to the new image after importing a picture", async () => {

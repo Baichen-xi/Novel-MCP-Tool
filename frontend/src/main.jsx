@@ -627,7 +627,7 @@ function buildMapAtlas(world = {}) {
 
   const assignedImageIds = new Set(images.map((image) => image.id));
   const unassignedNodes = nodes.filter((node) => !assignedImageIds.has(node.map_image_id));
-  if (!maps.length && unassignedNodes.length) {
+  if (unassignedNodes.length) {
     const groups = new Map();
     for (const node of unassignedNodes) {
       const key = node.layer || node.plane || "未分配地图";
@@ -655,24 +655,6 @@ function buildMapAtlas(world = {}) {
         nodes: groupNodes,
       });
     }
-  } else if (unassignedNodes.length) {
-    maps.push({
-      id: "group-unassigned",
-      imageId: null,
-      title: "未分配资料节点",
-      layer: "资料",
-      scaleKind: "资料图",
-      scope: "",
-      summary: "这些节点还没有绑定到具体地图图片或图册，建议后续手动编辑归属。",
-      realWidth: 0,
-      realHeight: 0,
-      distanceUnit: "里",
-      scaleLabel: "",
-      mimeType: "image/png",
-      imageData: "",
-      imageSrc: "",
-      nodes: unassignedNodes,
-    });
   }
 
   if (!maps.length) {
@@ -2925,6 +2907,7 @@ export {
   CharacterEditor,
   FactionEditor,
   MapWorkspace,
+  buildMapAtlas,
   characterDraft,
   draftToMapImagePayload,
   draftToMapNodePayload,

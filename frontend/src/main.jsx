@@ -355,6 +355,19 @@ function pointInPolygon(point, polygonPoints = []) {
   return inside;
 }
 
+function polygonArea(polygonPoints = []) {
+  if (!Array.isArray(polygonPoints) || polygonPoints.length < 3) {
+    return 0;
+  }
+  let area = 0;
+  for (let i = 0, j = polygonPoints.length - 1; i < polygonPoints.length; j = i++) {
+    const current = polygonPoints[i] || {};
+    const previous = polygonPoints[j] || {};
+    area += numberOr(previous.x, 0) * numberOr(current.y, 0) - numberOr(current.x, 0) * numberOr(previous.y, 0);
+  }
+  return Math.abs(area) / 2;
+}
+
 function formatPolygonPoints(points = []) {
   if (!Array.isArray(points)) {
     return "";
@@ -437,7 +450,7 @@ function mapAreaColorStyle(node, active = false, hasImage = false) {
   return {
     fill: rgbCss(color, active ? 0.18 : 0.08),
     stroke: rgbCss(color, active ? 0.96 : 0.78),
-    strokeWidth: active ? 9 : 6,
+    strokeWidth: active ? 4.5 : 3,
     filter: active ? `drop-shadow(0 0 10px ${rgbCss(color, 0.34)})` : undefined,
   };
 }
@@ -2132,7 +2145,10 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
   const scaleDistance = activeMap?.realWidth
     ? activeMap.realWidth * (camera.w / MAP_SCENE.width) * (SCALE_BAR_TARGET_PX / viewportWidth)
     : 0;
-  const polygonNodes = nodes.filter((node) => normalizeNodeShape(node.shape) === "polygon" && node.polygon_points?.length);
+  const polygonNodes = nodes
+    .filter((node) => normalizeNodeShape(node.shape) === "polygon" && node.polygon_points?.length)
+    .slice()
+    .sort((left, right) => polygonArea(right.polygon_points || []) - polygonArea(left.polygon_points || []));
   const pointNodes = nodes.filter((node) => normalizeNodeShape(node.shape) !== "polygon" || !node.polygon_points?.length);
   const routePairs = pointNodes.slice(0, 8).flatMap((node, index, list) => (list[index + 1] ? [[node, list[index + 1]]] : []));
   const selectedIsArea = Boolean(selectedNode && normalizeNodeShape(selectedNode.shape) === "polygon");

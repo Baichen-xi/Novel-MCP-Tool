@@ -844,7 +844,7 @@ describe("MapWorkspace", () => {
 
     fireEvent.pointerDown(container.querySelector(".mapViewport"), { button: 0 });
     expect(area).not.toHaveClass("active");
-    expect(polygon.style.strokeWidth).toBe("6");
+    expect(polygon.style.strokeWidth).toBe("3");
   });
 
   it("cycles selection between overlapping map areas without keeping the previous area highlighted", () => {
@@ -905,6 +905,58 @@ describe("MapWorkspace", () => {
     fireEvent.click(areas[1], { clientX: 480, clientY: 300 });
     expect(areas[0]).toHaveClass("active");
     expect(areas[1]).not.toHaveClass("active");
+  });
+
+  it("renders smaller contained areas above larger areas", () => {
+    const world = {
+      map_images: [{ id: 12, title: "包含区域", layer: "世界", scale_kind: "总览" }],
+      map_nodes: [
+        {
+          id: 31,
+          map_image_id: 12,
+          name: "大区域",
+          type: "区域",
+          shape: "polygon",
+          x: 50,
+          y: 50,
+          polygon_points: [
+            { x: 10, y: 10 },
+            { x: 90, y: 10 },
+            { x: 90, y: 90 },
+            { x: 10, y: 90 },
+          ],
+        },
+        {
+          id: 32,
+          map_image_id: 12,
+          name: "小区域",
+          type: "区域",
+          shape: "polygon",
+          x: 50,
+          y: 50,
+          polygon_points: [
+            { x: 42, y: 42 },
+            { x: 58, y: 42 },
+            { x: 58, y: 58 },
+            { x: 42, y: 58 },
+          ],
+        },
+      ],
+    };
+
+    const { container } = render(
+      <MapWorkspace
+        world={world}
+        saving={false}
+        onSaveNode={vi.fn()}
+        onDeleteNode={vi.fn()}
+        onDeleteMap={vi.fn()}
+        onSaveMap={vi.fn()}
+      />
+    );
+
+    const labels = [...container.querySelectorAll(".mapArea text")].map((element) => element.textContent);
+    expect(labels).toEqual(["大区域", "小区域"]);
   });
 
   it("renders the updated area color after map node save refreshes world data", async () => {

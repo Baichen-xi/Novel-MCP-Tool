@@ -800,6 +800,57 @@ describe("MapWorkspace", () => {
     expect(container.querySelector(".mapNodeLayer")).not.toBeNull();
   });
 
+  it("hides and restores only the selected area from the selected area card", () => {
+    const onSaveNode = vi.fn();
+    const onDeleteNode = vi.fn();
+    const world = {
+      map_images: [{ id: 12, title: "四域总览", layer: "世界", scale_kind: "总览" }],
+      map_nodes: [
+        {
+          id: 31,
+          map_image_id: 12,
+          name: "青岚洲",
+          type: "区域",
+          shape: "polygon",
+          color: "120,146,185",
+          x: 22,
+          y: 32,
+          polygon_points: [
+            { x: 8, y: 22 },
+            { x: 32, y: 12 },
+            { x: 36, y: 40 },
+          ],
+        },
+      ],
+    };
+
+    const { container } = render(
+      <MapWorkspace
+        world={world}
+        saving={false}
+        onSaveNode={onSaveNode}
+        onDeleteNode={onDeleteNode}
+        onDeleteMap={vi.fn()}
+        onSaveMap={vi.fn()}
+      />
+    );
+
+    const area = container.querySelector(".mapArea");
+    fireEvent.click(area);
+    expect(area).toHaveClass("active");
+
+    fireEvent.click(screen.getByRole("button", { name: "隐藏区域" }));
+    expect(container.querySelector(".mapArea")).toBeNull();
+    expect(screen.getByText("青岚洲")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "显示区域" })).toBeInTheDocument();
+    expect(onSaveNode).not.toHaveBeenCalled();
+    expect(onDeleteNode).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "显示区域" }));
+    expect(container.querySelector(".mapArea")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "隐藏区域" })).toBeInTheDocument();
+  });
+
   it("highlights selected areas with their own color and clears highlight on map blank clicks", () => {
     const world = {
       map_images: [{ id: 12, title: "四域总览", layer: "世界", scale_kind: "总览" }],

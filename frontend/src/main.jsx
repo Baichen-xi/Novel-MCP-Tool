@@ -1,6 +1,6 @@
 import { createRoot } from "react-dom/client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, ImagePlus, Layers3, Map as MapIcon, Pencil, Plus, RefreshCw, Shield, Trash2, Upload, UserRound } from "lucide-react";
+import { BookOpen, Eye, EyeOff, ImagePlus, Layers3, Map as MapIcon, Pencil, Plus, RefreshCw, Shield, Trash2, Upload, UserRound } from "lucide-react";
 import "./styles.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8765";
@@ -1695,6 +1695,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
   const [showAreas, setShowAreas] = useState(true);
   const [showRoutes, setShowRoutes] = useState(true);
   const [showNodes, setShowNodes] = useState(true);
+  const [hiddenAreaIds, setHiddenAreaIds] = useState(() => new Set());
   const draftMapId = "draft-new-map";
 
   const maps = useMemo(() => {
@@ -1746,6 +1747,11 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
     if (highlightedNodeId && !nodes.some((node) => node.id === highlightedNodeId)) {
       setHighlightedNodeId("");
     }
+    setHiddenAreaIds((current) => {
+      const validIds = new Set(nodes.map((node) => node.id));
+      const next = new Set([...current].filter((id) => validIds.has(id)));
+      return next.size === current.size ? current : next;
+    });
   }, [nodes, selectedNodeId, highlightedNodeId]);
 
   useEffect(() => {
@@ -2149,21 +2155,41 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
     .filter((node) => normalizeNodeShape(node.shape) === "polygon" && node.polygon_points?.length)
     .slice()
     .sort((left, right) => polygonArea(right.polygon_points || []) - polygonArea(left.polygon_points || []));
+  const visiblePolygonNodes = polygonNodes.filter((node) => !hiddenAreaIds.has(node.id));
   const pointNodes = nodes.filter((node) => normalizeNodeShape(node.shape) !== "polygon" || !node.polygon_points?.length);
   const routePairs = pointNodes.slice(0, 8).flatMap((node, index, list) => (list[index + 1] ? [[node, list[index + 1]]] : []));
   const selectedIsArea = Boolean(selectedNode && normalizeNodeShape(selectedNode.shape) === "polygon");
+  const selectedAreaHidden = Boolean(selectedIsArea && selectedNode && hiddenAreaIds.has(selectedNode.id));
+  const hiddenAreaCount = polygonNodes.length - visiblePolygonNodes.length;
   const hasMapImage = Boolean(activeMap?.imageId && activeMap?.imageData && activeMap.imageData !== EMPTY_MAP_IMAGE_DATA);
 
   const selectPolygonAtEvent = (event, fallbackNode) => {
     event.stopPropagation();
     const point = eventToPercentPoint(event);
-    const matchedNodes = polygonNodes.filter((node) => pointInPolygon(point, node.polygon_points || []));
+    const matchedNodes = visiblePolygonNodes.filter((node) => pointInPolygon(point, node.polygon_points || []));
     const candidates = matchedNodes.length ? matchedNodes : [fallbackNode];
     const currentIndex = candidates.findIndex((node) => node.id === highlightedNodeId);
     const nextNode = currentIndex >= 0 ? candidates[(currentIndex + 1) % candidates.length] : fallbackNode;
     setSelectedNodeId(nextNode.id);
     setHighlightedNodeId(nextNode.id);
     setEditing(false);
+  };
+
+  const toggleSelectedAreaVisibility = () => {
+    if (!selectedIsArea || !selectedNode) {
+      return;
+    }
+    const willShowArea = hiddenAreaIds.has(selectedNode.id);
+    setHiddenAreaIds((current) => {
+      const next = new Set(current);
+      if (next.has(selectedNode.id)) {
+        next.delete(selectedNode.id);
+      } else {
+        next.add(selectedNode.id);
+      }
+      return next;
+    });
+    setHighlightedNodeId(willShowArea ? selectedNode.id : "");
   };
 
   return (
@@ -2307,7 +2333,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
               </g>
               {showAreas ? (
                 <g className="mapPolygonLayer">
-                  {polygonNodes.map((node) => {
+                  {visiblePolygonNodes.map((node) => {
                     const points = (node.polygon_points || []).map(pointToScene);
                     const pointText = points.map((point) => `${point.x},${point.y}`).join(" ");
                     const center = pointToScene({ x: node.x, y: node.y });
@@ -2482,7 +2508,12 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                     <div className="kv">
                       <span>图层提示</span>
                       <div>
-                        {[activeMap?.layer, activeMap?.scope, `当前层级显示 ${nodes.length} 个节点`, polygonNodes.length ? `${polygonNodes.length} 个范围` : ""]
+                        {[
+                          activeMap?.layer,
+                          activeMap?.scope,
+                          `当前层级显示 ${nodes.length} 个节点`,
+                          polygonNodes.length ? (hiddenAreaCount ? `${visiblePolygonNodes.length}/${polygonNodes.length} 个范围显示` : `${polygonNodes.length} 个范围`) : "",
+                        ]
                           .filter(Boolean)
                           .join("、")}
                       </div>
@@ -2496,6 +2527,18 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
               <div className="panelTitle">
                 <h3>{selectedIsArea ? "选中区域" : "选中节点"}</h3>
                 <span className="cardActions">
+                  {selectedNode && selectedIsArea && !editing ? (
+                    <button
+                      className="ghostButton compactButton"
+                      type="button"
+                      onClick={toggleSelectedAreaVisibility}
+                      disabled={saving}
+                      aria-label={selectedAreaHidden ? "显示区域" : "隐藏区域"}
+                    >
+                      {selectedAreaHidden ? <Eye size={15} /> : <EyeOff size={15} />}
+                      {selectedAreaHidden ? "显示区域" : "隐藏区域"}
+                    </button>
+                  ) : null}
                   {selectedNode && !editing ? (
                     <button
                       className="ghostButton compactButton"

@@ -64,15 +64,15 @@ python -m app.mcp_server
 {
   "mcpServers": {
     "novel-cockpit": {
-      "command": "C:\\Users\\zero\\Desktop\\codex\\小说MCP工具\\backend\\dist\\novel-cockpit-mcp.exe",
+      "command": "<项目目录>\\backend\\dist\\novel-cockpit-mcp.exe",
       "args": [],
       "env": {
-        "NOVEL_COCKPIT_DB": "C:\\Users\\zero\\AppData\\Roaming\\local.novel.cockpit\\novel.db",
+        "NOVEL_COCKPIT_DB": "%APPDATA%\\local.novel.cockpit\\novel.db",
         "PYTHONUTF8": "1",
         "FASTMCP_SHOW_SERVER_BANNER": "false",
         "FASTMCP_LOG_ENABLED": "false"
       },
-      "cwd": "C:\\Users\\zero\\Desktop\\codex\\小说MCP工具"
+      "cwd": "<项目目录>"
     }
   }
 }
@@ -96,6 +96,8 @@ python -m app.mcp_server
 完整的“每个工具怎么用 + 可以直接发给 LLM 的提示词”已经整理到 [docs/LLM_MCP_TOOL_GUIDE.md](docs/LLM_MCP_TOOL_GUIDE.md)。
 
 数据库只保留一份权威库，规范写在 [docs/数据库单库规范.md](docs/数据库单库规范.md)。
+
+HTTP 接口、MCP 工具、service 层和数据库之间的关系，以及重复/缺失/风险项，整理在 [docs/接口与代码关系审计.md](docs/接口与代码关系审计.md)。后续新增或重构接口前建议先读这份文档。
 
 如果 LLM 不确定某一类写入的 JSON 结构，先调用 `get_payload_templates` 拿模板，再写入，别靠猜字段名。
 

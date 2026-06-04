@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Eye, EyeOff, ImagePlus, Layers3, Map as MapIcon, Pencil, Plus, RefreshCw, Shield, Trash2, Upload, UserRound } from "lucide-react";
+import { BookOpen, CheckCircle2, Clock3, Eye, EyeOff, FileText, ImagePlus, Layers3, Map as MapIcon, Pencil, Plus, RefreshCw, Shield, Trash2, Upload, UserRound, XCircle } from "lucide-react";
+import { gsap } from "gsap";
 import "./styles.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8765";
@@ -12,7 +13,22 @@ const mapScaleKinds = ["总览", "世界", "区域", "城市", "建筑", "副本
 
 const roleOptions = ["主角", "配角", "男主", "女主", "重要配角", "其他"];
 
+const moduleLabels = {
+  characters: "人物信息",
+  powerSystem: "境界体系",
+  factions: "势力结构",
+  maps: "世界图册",
+  timeline: "故事时间线",
+  chapters: "章节概览",
+  world: "世界设定",
+  projects: "小说项目",
+};
+
 const viewMeta = {
+  bookshelf: {
+    title: "小说书架",
+    subtitle: "选择一本小说进入资料页，或手动新增一个小说项目。",
+  },
   characters: {
     title: "人物信息",
     subtitle: "姓名、性别、性格、境界、身份、角色身份、存活状态，以及更完整的人物关系与装备信息。",
@@ -29,7 +45,59 @@ const viewMeta = {
     title: "世界图册",
     subtitle: "按真实尺度展示地图、范围、多边形区域和节点坐标，支持作者手动修正并同步数据库。",
   },
+  timeline: {
+    title: "故事时间线",
+    subtitle: "以小说世界内真实纪年排序，章节只作为叙述或揭示来源，适合整理插叙、倒叙、回忆和预言。",
+  },
+  chapters: {
+    title: "章节概览",
+    subtitle: "按章节保存已经讲述、揭示、补完的关键事实，帮助作者核对读者获得信息的过程。",
+  },
+  pending: {
+    title: "待审核",
+    subtitle: "集中查看 LLM 提交但尚未进入正式资料库的草稿，批准后才会写入对应页面。",
+  },
 };
+
+const timelineFilters = [
+  { id: "全部", label: "全部" },
+  { id: "正序事件", label: "正序" },
+  { id: "前史", label: "前史" },
+  { id: "插叙/回忆", label: "插叙/回忆" },
+  { id: "梦境/预言", label: "梦境/预言" },
+  { id: "未知时间", label: "未知" },
+];
+
+const timelineTypeClass = {
+  正序事件: "normal",
+  前史: "past",
+  "插叙/回忆": "memory",
+  "梦境/预言": "vision",
+  未知时间: "unknown",
+};
+
+const chapterOverviewFilters = [
+  { id: "全部", label: "全部" },
+  { id: "主线推进", label: "主线" },
+  { id: "人物变化", label: "人物" },
+  { id: "势力变化", label: "势力" },
+  { id: "伏笔", label: "伏笔" },
+  { id: "死亡失踪", label: "死亡失踪" },
+  { id: "设定补充", label: "设定" },
+];
+
+const chapterOverviewTypeClass = {
+  主线推进: "main",
+  人物变化: "character",
+  势力变化: "faction",
+  伏笔: "hook",
+  死亡失踪: "danger",
+  设定补充: "setting",
+};
+
+function prefersReducedMotion() {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 async function api(path, options = {}) {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -67,6 +135,24 @@ function splitLines(value) {
   return [String(value).trim()].filter(Boolean);
 }
 
+function asArray(value) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+  return splitLines(value);
+}
+
+function itemLabel(item) {
+  if (item && typeof item === "object" && !Array.isArray(item)) {
+    return String(item.title || item.name || item.fact || item.hook || item.event || item.summary || item.description || "").trim();
+  }
+  return String(item || "").trim();
+}
+
+function textList(value) {
+  return asArray(value).map(itemLabel).filter(Boolean);
+}
+
 function joinLines(value) {
   return splitLines(value).join("\n");
 }
@@ -100,6 +186,243 @@ function normalizeFactionStatusLabel(value) {
     return "覆灭";
   }
   return text;
+}
+
+function normalizeTimelineTextList(value) {
+  return splitLines(value);
+}
+
+function isChapterSummaryTimelineSignal(event = {}) {
+  return textList(event.tags).includes("chapter_summary");
+}
+
+function normalizeTimelineSide(value, index) {
+  const text = String(value || "").trim().toLowerCase();
+  if (["left", "左", "左侧"].includes(text)) {
+    return "left";
+  }
+  if (["right", "右", "右侧"].includes(text)) {
+    return "right";
+  }
+  return index % 2 === 0 ? "left" : "right";
+}
+
+function normalizeTimelineEvent(event = {}, index = 0) {
+  const chapter = event.chapter || "";
+  const title = event.title || event.event || event.summary || "未命名事件";
+  const summary = event.summary || event.event || title;
+  const year = event.year_label || event.year || event.date_label || (chapter ? `第 ${chapter} 章` : "时间未定");
+  const timeNote = event.time_note || event.timeNote || "";
+  const sortValue = Number(event.sort_order ?? event.sort ?? 0);
+  return {
+    id: String(event.id || `timeline-${index}`),
+    era: event.era || "未定纪年",
+    year,
+    timeNote,
+    sort: Number.isFinite(sortValue) && sortValue !== 0 ? sortValue : Number(chapter || index + 1),
+    side: normalizeTimelineSide(event.side, index),
+    type: event.event_type || event.type || "未知时间",
+    title,
+    summary,
+    narrative: event.narrative || (chapter ? `第 ${chapter} 章` : "叙述来源未记载"),
+    location: event.location || "地点未记载",
+    characters: normalizeTimelineTextList(event.involved_characters || event.characters),
+    factions: normalizeTimelineTextList(event.factions),
+    consequences: event.consequences || "影响结果未记录",
+    hooks: normalizeTimelineTextList(event.hooks || event.tags),
+  };
+}
+
+function timelineEventMatches(event, activeFilter, keyword) {
+  const typeOk = activeFilter === "全部" || event.type === activeFilter;
+  const text = [
+    event.era,
+    event.year,
+    event.timeNote,
+    event.title,
+    event.summary,
+    event.narrative,
+    event.location,
+    event.characters.join(" "),
+    event.factions.join(" "),
+    event.hooks.join(" "),
+  ].join(" ");
+  return typeOk && (!keyword || text.includes(keyword));
+}
+
+function groupTimelineByEra(list) {
+  return list.reduce((groups, event) => {
+    const last = groups[groups.length - 1];
+    if (last && last.era === event.era) {
+      last.events.push(event);
+    } else {
+      groups.push({ era: event.era, events: [event] });
+    }
+    return groups;
+  }, []);
+}
+
+function normalizeChapterNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function normalizeChapterFactType(value, fallback = "设定补充") {
+  const text = String(value || "").trim();
+  if (!text) {
+    return fallback;
+  }
+  if (["主线", "主线事件", "剧情推进", "当前线事件"].includes(text)) {
+    return "主线推进";
+  }
+  if (["人物", "角色", "角色变化"].includes(text)) {
+    return "人物变化";
+  }
+  if (["势力", "组织", "阵营"].includes(text)) {
+    return "势力变化";
+  }
+  if (["伏笔埋设", "伏笔回收", "钩子"].includes(text)) {
+    return "伏笔";
+  }
+  if (["死亡", "失踪", "死亡/失踪"].includes(text)) {
+    return "死亡失踪";
+  }
+  return chapterOverviewTypeClass[text] ? text : fallback;
+}
+
+function normalizeChapterTextItem(item, index, chapter, sourcePrefix, fallbackType = "设定补充") {
+  if (item && typeof item === "object" && !Array.isArray(item)) {
+    const title = item.title || item.name || item.fact || item.hook || item.event || item.summary || `${sourcePrefix} ${index + 1}`;
+    const summary = item.summary || item.description || item.content || item.fact || item.hook || item.event || title;
+    return {
+      id: `${sourcePrefix}-${chapter}-${index}`,
+      chapter,
+      order: String(index + 1).padStart(2, "0"),
+      type: normalizeChapterFactType(item.type || item.category || item.kind, fallbackType),
+      title: String(title),
+      time: item.time || item.time_note || item.year_label || "本章内",
+      location: item.location || "地点未记录",
+      summary: String(summary),
+      characters: textList(item.characters || item.involved_characters),
+      factions: textList(item.factions),
+      consequences: item.consequences || item.result || item.impact || "影响结果未记录",
+      hooks: textList(item.hooks || item.tags || item.related_hooks || item.hook),
+      status: item.status || (fallbackType === "伏笔" ? "待回收" : "已确认"),
+      source: item.source || `第 ${chapter} 章`,
+    };
+  }
+  const text = String(item || "").trim();
+  return {
+    id: `${sourcePrefix}-${chapter}-${index}`,
+    chapter,
+    order: String(index + 1).padStart(2, "0"),
+    type: fallbackType,
+    title: text || `${sourcePrefix} ${index + 1}`,
+    time: "本章内",
+    location: "地点未记录",
+    summary: text || "未填写说明。",
+    characters: [],
+    factions: [],
+    consequences: fallbackType === "伏笔" ? "伏笔进入章节事实册，后续需要追踪。" : "影响结果未记录",
+    hooks: fallbackType === "伏笔" && text ? [text] : [],
+    status: fallbackType === "伏笔" ? "待回收" : "已确认",
+    source: `第 ${chapter} 章`,
+  };
+}
+
+function normalizeChapterOverviewEvent(event = {}, index = 0) {
+  const chapter = normalizeChapterNumber(event.chapter);
+  const title = event.title || event.event || event.summary || `章节事实 ${index + 1}`;
+  return {
+    id: String(event.id || `chapter-event-${chapter || "unknown"}-${index}`),
+    chapter,
+    order: String(event.order || event.sort_order || index + 1).padStart(2, "0"),
+    type: normalizeChapterFactType(event.chapter_fact_type || event.event_type || event.type, "主线推进"),
+    title: String(title),
+    time: event.time || event.time_note || event.year_label || "本章内",
+    location: event.location || "地点未记录",
+    summary: event.summary || event.event || title,
+    characters: textList(event.involved_characters || event.characters),
+    factions: textList(event.factions),
+    consequences: event.consequences || "影响结果未记录",
+    hooks: textList(event.hooks || event.tags),
+    status: event.status || "已确认",
+    source: event.source || event.narrative || `第 ${chapter || "未知"} 章`,
+  };
+}
+
+function buildChapterOverview(chapterSummaries = [], timeline = []) {
+  const chapterMap = new Map();
+  const events = [];
+  const ensureChapter = (chapter, patch = {}) => {
+    if (!chapter) {
+      return null;
+    }
+    const current = chapterMap.get(chapter) || {
+      id: `chapter-${chapter}`,
+      chapter,
+      label: `第 ${chapter} 章`,
+      title: `第 ${chapter} 章`,
+      note: "章节资料待补充",
+    };
+    chapterMap.set(chapter, { ...current, ...patch });
+    return chapterMap.get(chapter);
+  };
+
+  chapterSummaries.forEach((summary, summaryIndex) => {
+    const chapter = normalizeChapterNumber(summary.chapter);
+    if (!chapter) {
+      return;
+    }
+    ensureChapter(chapter, {
+      title: summary.title || `第 ${chapter} 章摘要`,
+      note: summary.summary || "本章摘要待补充",
+    });
+    if (summary.summary) {
+      events.push({
+        id: `summary-${chapter}`,
+        chapter,
+        order: "00",
+        type: "主线推进",
+        title: summary.title || `第 ${chapter} 章摘要`,
+        time: "本章概述",
+        location: "章节整体",
+        summary: summary.summary,
+        characters: [],
+        factions: [],
+        consequences: "本章摘要已保存。",
+        hooks: textList(summary.hooks),
+        status: "已确认",
+        source: `章节摘要 ${summaryIndex + 1}`,
+      });
+    }
+    asArray(summary.facts).forEach((fact, index) => {
+      events.push(normalizeChapterTextItem(fact, index, chapter, "fact", "设定补充"));
+    });
+    asArray(summary.hooks).forEach((hook, index) => {
+      events.push(normalizeChapterTextItem(hook, index, chapter, "hook", "伏笔"));
+    });
+  });
+
+  timeline.forEach((item, index) => {
+    const signalTags = textList(item.tags || item.hooks);
+    if (signalTags.includes("chapter_summary")) {
+      return;
+    }
+    const event = normalizeChapterOverviewEvent(item, index);
+    if (!event.chapter) {
+      return;
+    }
+    ensureChapter(event.chapter, {
+      title: chapterMap.get(event.chapter)?.title || `第 ${event.chapter} 章`,
+      note: chapterMap.get(event.chapter)?.note || "由时间线事件生成的章节事实",
+    });
+    events.push(event);
+  });
+
+  events.sort((left, right) => left.chapter - right.chapter || Number(left.order) - Number(right.order) || left.title.localeCompare(right.title, "zh-CN"));
+  const chapters = [...chapterMap.values()].sort((left, right) => left.chapter - right.chapter);
+  return { chapters, events };
 }
 
 function factionStatusTone(value) {
@@ -240,6 +563,15 @@ function powerStageLabel(stage, index) {
 
 function projectTitle(project) {
   return project?.title || "未命名作品";
+}
+
+function isFantasyProject(project) {
+  const genre = String(project?.genre || "");
+  return genre.includes("玄幻") || genre.includes("仙侠");
+}
+
+function projectUpdatedLabel(project) {
+  return String(project?.updated_at || project?.created_at || "").slice(0, 10) || "未记录";
 }
 
 function clamp(value, min, max) {
@@ -791,10 +1123,376 @@ function buildMapAtlas(world = {}) {
   return maps;
 }
 
+function prettyJson(value) {
+  return JSON.stringify(value ?? {}, null, 2);
+}
+
+function changeModule(change = {}) {
+  if (change.module_type) {
+    return change.module_type;
+  }
+  const type = String(change.target_type || "");
+  if (type.startsWith("character")) return "characters";
+  if (type.startsWith("faction")) return "factions";
+  if (type.startsWith("power")) return "powerSystem";
+  if (type.startsWith("map")) return "maps";
+  if (type.startsWith("timeline")) return "timeline";
+  if (type.startsWith("chapter")) return "chapters";
+  if (type.startsWith("world")) return "world";
+  return "";
+}
+
+function modulePendingChanges(changes = [], module) {
+  return changes.filter((change) => changeModule(change) === module);
+}
+
+function PendingRenderedPreview({ change }) {
+  const module = changeModule(change);
+  const data = change.preview || change.patch || {};
+  const targetType = String(change.target_type || "");
+  const title = data.name || data.title || data.名称 || data.地图名 || data.事件标题 || data.标题 || change.target_entity || change.target_name || "未命名";
+
+  if (module === "characters") {
+    return (
+      <div className="pendingRenderedPreview characterPreview">
+        <div className="pendingPreviewTitleRow">
+          <strong>{data.name || data.姓名 || title}</strong>
+          <span className={isAliveStatus(data.status || data.存活状态) ? "statusBadge alive" : "statusBadge dead"}>{normalizeStatusLabel(data.status || data.存活状态)}</span>
+        </div>
+        <div className="pendingPreviewGrid">
+          <span>角色身份：{data.role || data.角色身份 || "未记录"}</span>
+          <span>性别：{data.gender || data.性别 || "未记录"}</span>
+          <span>境界：{data.realm || data.当前境界 || "未记录"}</span>
+          <span>身份：{data.identity || data.身份 || "未记录"}</span>
+          <span>阵营：{data.faction || data.阵营 || "未记录"}</span>
+          <span>血脉：{data.bloodline || data.血脉 || "未记录"}</span>
+        </div>
+        <p>{data.personality || data.性格 || "性格未记录"}</p>
+        <div className="pendingPreviewChips">
+          {textList(data.abilities || data.所修功法).map((item) => <span className="tag" key={item}>{item}</span>)}
+          {textList(data.equipment || data.拥有的装备).map((item) => <span className="tag" key={item}>{item}</span>)}
+        </div>
+      </div>
+    );
+  }
+
+  if (module === "factions") {
+    return (
+      <div className="pendingRenderedPreview factionPreview">
+        <div className="pendingPreviewTitleRow">
+          <strong>{data.name || data.名称 || title}</strong>
+          <span className={`statusBadge ${factionStatusTone(data.status || data.状态)}`}>{normalizeFactionStatusLabel(data.status || data.状态)}</span>
+        </div>
+        <div className="pendingPreviewGrid">
+          <span>类型：{data.type || data.类型 || "未记录"}</span>
+          <span>层级：{data.level || data.层级 || "未记录"}</span>
+          <span>领袖：{data.leader || data.领袖 || "未记录"}</span>
+          <span>所在地：{data.location || data.所在地 || "未记录"}</span>
+          <span className="spanTwo">势力范围：{data.sphere || data.势力范围 || "未记录"}</span>
+        </div>
+        <p>{data.summary || data.简介 || "简介未记录"}</p>
+      </div>
+    );
+  }
+
+  if (module === "powerSystem") {
+    const stages = Array.isArray(data.stages || data.小境界) ? data.stages || data.小境界 : [];
+    return (
+      <div className="pendingRenderedPreview powerPreview">
+        <div className="pendingPreviewTitleRow">
+          <strong>{data.name || data.境界 || title}</strong>
+          <span className="chip">{stages.length} 个小境界</span>
+        </div>
+        <p>{data.description || data.说明 || "说明未记录"}</p>
+        {stages.length ? (
+          <table className="pendingMiniTable">
+            <tbody>
+              {stages.map((stage, index) => (
+                <tr key={`${stage.name || stage.名称 || index}`}>
+                  <td>{stage.name || stage.名称 || `小境界 ${index + 1}`}</td>
+                  <td>{stage.description || stage.说明 || "未填写说明"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
+      </div>
+    );
+  }
+
+  if (module === "maps") {
+    const color = data.color || data.颜色 || "";
+    const points = Array.isArray(data.polygon_points || data.顶点) ? data.polygon_points || data.顶点 : [];
+    return (
+      <div className="pendingRenderedPreview mapPreview">
+        <div className="pendingPreviewTitleRow">
+          <strong>{title}</strong>
+          <span className="chip">{targetType.includes("region") ? "区域" : targetType.includes("node") ? "节点" : "地图"}</span>
+        </div>
+        <div className="pendingPreviewGrid">
+          <span>层级：{data.layer || data.层级 || "未记录"}</span>
+          <span>尺度：{data.scale_label || data.标度文字 || "未设定比例"}</span>
+          <span>范围：{data.real_width || data.横向范围 || 0} × {data.real_height || data.纵向范围 || 0} {data.distance_unit || data.距离单位 || "里"}</span>
+          <span>坐标：{data.x ?? "未设定"} / {data.y ?? "未设定"}</span>
+          <span className="spanTwo">说明：{data.notes || data.description || data.说明 || "未记录"}</span>
+        </div>
+        {color ? (
+          <div className="pendingColorRow">
+            <span className="pendingColorSwatch" style={{ backgroundColor: `rgb(${color})` }} />
+            <span>{color}</span>
+          </div>
+        ) : null}
+        {points.length ? <p>区域顶点：{points.map((point) => `(${point.x}, ${point.y})`).join("、")}</p> : null}
+      </div>
+    );
+  }
+
+  if (module === "timeline") {
+    return (
+      <div className="pendingRenderedPreview timelinePreview">
+        <div className="pendingPreviewTitleRow">
+          <strong>{data.title || data.事件标题 || title}</strong>
+          <span className="chip">{data.year_label || data.故事时间 || "时间未定"}</span>
+        </div>
+        <p>{data.summary || data.事件说明 || "事件说明未记录"}</p>
+        <div className="pendingPreviewChips">
+          <span className="tag">{data.event_type || data.事件类型 || "未知时间"}</span>
+          <span className="tag">{data.location || data.地点 || "地点未记录"}</span>
+          {textList(data.involved_characters || data.涉及人物).map((item) => <span className="tag" key={item}>{item}</span>)}
+        </div>
+      </div>
+    );
+  }
+
+  if (module === "chapters") {
+    return (
+      <div className="pendingRenderedPreview chapterPreview">
+        <div className="pendingPreviewTitleRow">
+          <strong>第 {data.chapter || data.章节 || "?"} 章 · {data.title || data.标题 || "未命名章节"}</strong>
+          <span className="chip">章节概览</span>
+        </div>
+        <p>{data.summary || data.摘要 || "摘要未记录"}</p>
+        <div className="pendingPreviewChips">
+          {textList(data.facts || data.事实).map((item) => <span className="tag" key={item}>{item}</span>)}
+          {textList(data.hooks || data.伏笔).map((item) => <span className="tag" key={item}>{item}</span>)}
+        </div>
+      </div>
+    );
+  }
+
+  if (module === "world") {
+    return (
+      <div className="pendingRenderedPreview worldPreview">
+        <div className="pendingPreviewTitleRow">
+          <strong>世界设定</strong>
+          <span className="chip">总览</span>
+        </div>
+        <p>{data.summary || data.世界设定 || "世界设定未记录"}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pendingRenderedPreview">
+      <div className="pendingPreviewTitleRow">
+        <strong>{title}</strong>
+        <span className="chip">{change.target_type || "待审核"}</span>
+      </div>
+      <p>该类型暂时使用通用 JSON 预览。</p>
+    </div>
+  );
+}
+
+function InlinePendingCard({ change, saving, onApprove, onReject }) {
+  const [editing, setEditing] = useState(false);
+  const [draftText, setDraftText] = useState(() => prettyJson(change.patch));
+  const [localError, setLocalError] = useState("");
+  const validation = change.validation || {};
+  const moduleLabel = change.module_label || moduleLabels[changeModule(change)] || "未分类";
+  const target = change.target_entity || change.target_name || "未命名目标";
+
+  useEffect(() => {
+    setDraftText(prettyJson(change.patch));
+    setEditing(false);
+    setLocalError("");
+  }, [change.id, change.patch]);
+
+  const approve = async () => {
+    setLocalError("");
+    let patch;
+    if (editing) {
+      try {
+        patch = JSON.parse(draftText);
+      } catch (err) {
+        setLocalError("JSON 格式错误，无法批准。");
+        return;
+      }
+    }
+    await onApprove(change.id, patch);
+    setEditing(false);
+  };
+
+  return (
+    <article className="inlinePendingCard">
+      <div className="inlinePendingHead">
+        <div>
+          <strong>{target}</strong>
+          <small>{moduleLabel} · {change.target_type}</small>
+        </div>
+        <span className="pendingCapsule">待确认预览</span>
+      </div>
+      <PendingRenderedPreview change={change} />
+      {localError ? <div className="pendingValidation invalid">{localError}</div> : null}
+      {validation?.errors?.length ? (
+        <div className="pendingValidation invalid">{validation.errors.join("；")}</div>
+      ) : (
+        <div className="pendingValidation valid">格式已通过校验，批准后写入正式资料。</div>
+      )}
+      {editing ? (
+        <div className="pendingJsonArea">
+          <div className="pendingPreviewSectionLabel">JSON 原文 / 可编辑</div>
+          <textarea className="pendingJsonEditor" value={draftText} onChange={(event) => setDraftText(event.target.value)} />
+        </div>
+      ) : null}
+      <div className="inlinePendingActions">
+        <button className="ghostButton compactButton" onClick={() => setEditing((value) => !value)} disabled={saving}>
+          <Pencil size={14} />
+          {editing ? "收起 JSON" : "编辑 JSON"}
+        </button>
+        <button className="ghostButton compactButton approveButton" onClick={approve} disabled={saving}>
+          <CheckCircle2 size={14} />
+          批准
+        </button>
+        <button className="ghostButton compactButton rejectButton" onClick={() => onReject(change.id)} disabled={saving}>
+          <XCircle size={14} />
+          拒绝
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function InlinePendingList({ changes = [], saving, onApprove, onReject, empty = false }) {
+  if (!changes.length && !empty) {
+    return null;
+  }
+  return (
+    <div className="inlinePendingList">
+      {changes.map((change) => (
+        <InlinePendingCard key={change.id} change={change} saving={saving} onApprove={onApprove} onReject={onReject} />
+      ))}
+    </div>
+  );
+}
+
+function PendingPreviewPanel({ changes = [], module, title = "待审核草稿", saving, onApprove, onReject }) {
+  const scopedChanges = module ? changes.filter((change) => changeModule(change) === module) : changes;
+  const [editingId, setEditingId] = useState(null);
+  const [draftText, setDraftText] = useState("");
+  const [localError, setLocalError] = useState("");
+
+  if (!scopedChanges.length) {
+    return null;
+  }
+
+  const startEdit = (change) => {
+    if (editingId === change.id) {
+      setEditingId(null);
+      setDraftText("");
+      setLocalError("");
+      return;
+    }
+    setEditingId(change.id);
+    setDraftText(prettyJson(change.patch));
+    setLocalError("");
+  };
+
+  const approve = async (change) => {
+    setLocalError("");
+    let patch;
+    if (editingId === change.id) {
+      try {
+        patch = JSON.parse(draftText);
+      } catch (err) {
+        setLocalError("JSON 格式错误，无法批准。");
+        return;
+      }
+    }
+    await onApprove(change.id, patch);
+    setEditingId(null);
+    setDraftText("");
+  };
+
+  return (
+    <section className="pendingPreviewPanel">
+      <div className="pendingPreviewHead">
+        <div>
+          <p className="eyebrow">LLM 草稿</p>
+          <h2>{title}</h2>
+        </div>
+        <span className="countBadge">{scopedChanges.length}</span>
+      </div>
+      {localError ? <div className="banner errorBanner">{localError}</div> : null}
+      <div className="pendingPreviewList">
+        {scopedChanges.map((change) => {
+          const validation = change.validation || {};
+          const moduleLabel = change.module_label || moduleLabels[changeModule(change)] || "未分类";
+          const target = change.target_entity || change.target_name || "未命名目标";
+          const isEditing = editingId === change.id;
+          return (
+            <article className="pendingPreviewCard" key={change.id}>
+              <div className="pendingPreviewCardHead">
+                <div>
+                  <strong>{target}</strong>
+                  <small>
+                    {moduleLabel} · {change.target_type}
+                  </small>
+                </div>
+                <div className="pendingPreviewActions">
+                  <button className="ghostButton compactButton approveButton" onClick={() => approve(change)} disabled={saving}>
+                    <CheckCircle2 size={14} />
+                    批准
+                  </button>
+                  <button className="ghostButton compactButton rejectButton" onClick={() => onReject(change.id)} disabled={saving}>
+                    <XCircle size={14} />
+                    拒绝
+                  </button>
+                </div>
+              </div>
+              <p className="pendingReason">{change.reason || "未填写原因"}</p>
+              <div className="pendingPreviewSurface">
+                <div className="pendingPreviewSurfaceHead">
+                  <span className="pendingPreviewSectionLabel">界面预览</span>
+                  <button className="ghostButton compactButton" onClick={() => startEdit(change)} disabled={saving}>
+                    <Pencil size={14} />
+                    {isEditing ? "收起 JSON" : "编辑 JSON"}
+                  </button>
+                </div>
+                <PendingRenderedPreview change={change} />
+                {isEditing ? (
+                  <div className="pendingJsonArea">
+                    <div className="pendingPreviewSectionLabel">JSON 原文 / 可编辑</div>
+                    <textarea className="pendingJsonEditor" value={draftText} onChange={(event) => setDraftText(event.target.value)} />
+                  </div>
+                ) : null}
+              </div>
+              {validation?.errors?.length ? (
+                <div className="pendingValidation invalid">{validation.errors.join("；")}</div>
+              ) : (
+                <div className="pendingValidation valid">格式已通过校验，批准后写入正式资料。</div>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function App() {
   const [dashboard, setDashboard] = useState(null);
   const [factions, setFactions] = useState([]);
-  const [activeView, setActiveView] = useState("characters");
+  const [activeView, setActiveView] = useState("bookshelf");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -802,14 +1500,21 @@ function App() {
   const [selectedCharacterName, setSelectedCharacterName] = useState("");
   const [selectedFactionName, setSelectedFactionName] = useState("");
   const [factionDraftRevision, setFactionDraftRevision] = useState(0);
+  const [projectAdding, setProjectAdding] = useState(false);
+  const [projectDraft, setProjectDraft] = useState({ title: "", genre: "玄幻", premise: "" });
 
-  const load = async () => {
+  const load = async ({ resetSelection = false } = {}) => {
     setError("");
     try {
       const [nextDashboard, nextFactions] = await Promise.all([api("/api/dashboard"), api("/api/factions")]);
       setDashboard(nextDashboard);
       setFactions(nextFactions);
       setLoading(false);
+      if (resetSelection) {
+        setSelectedCharacterName(nextDashboard?.characters?.[0]?.name || "");
+        setSelectedFactionName(nextFactions?.[0]?.name || "");
+        return;
+      }
       if (!selectedCharacterName && nextDashboard?.characters?.length) {
         setSelectedCharacterName(nextDashboard.characters[0].name);
       }
@@ -828,6 +1533,12 @@ function App() {
 
   const characters = dashboard?.characters ?? [];
   const world = dashboard?.world ?? {};
+  const timeline = dashboard?.timeline ?? [];
+  const chapterSummaries = dashboard?.chapter_summaries ?? [];
+  const pendingChanges = dashboard?.pending_changes ?? [];
+  const projects = dashboard?.projects ?? (dashboard?.project ? [dashboard.project] : []);
+  const activeProject = dashboard?.project ?? projects.find((project) => project.is_active) ?? null;
+  const showPowerSystem = isFantasyProject(activeProject);
   const powerSystem = world?.power_system ?? {};
   const currentCharacter = useMemo(
     () => characters.find((character) => character.name === selectedCharacterName) || characters[0] || null,
@@ -867,6 +1578,12 @@ function App() {
       setSelectedFactionName(factions[0].name);
     }
   }, [factions, selectedFactionName]);
+
+  useEffect(() => {
+    if (activeView === "powerSystem" && activeProject && !showPowerSystem) {
+      setActiveView("characters");
+    }
+  }, [activeView, activeProject, showPowerSystem]);
 
   const syncPowerSystem = async (patch, reason) => {
     setSaving(true);
@@ -989,6 +1706,87 @@ function App() {
 
   const savePowerSystem = async (draft) => {
     await syncPowerSystem(draftToPowerSystemPatch(draft), "浏览器手动修正境界体系");
+  };
+
+  const saveChapterSummary = async (payload) => {
+    if (!payload.chapter || payload.chapter < 1) {
+      setError("请先填写有效章节号。");
+      return false;
+    }
+    if (!payload.summary.trim()) {
+      setError("请先填写章节摘要。");
+      return false;
+    }
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api("/api/chapters/summary", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      await load();
+      setNotice("已保存章节概览。");
+      return true;
+    } catch (err) {
+      setError("保存章节概览失败，请检查后端是否可用。");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteChapterSummary = async (chapter) => {
+    if (!chapter) {
+      return false;
+    }
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/api/chapters/summary/${chapter}`, { method: "DELETE" });
+      await load();
+      setNotice(`已删除第 ${chapter} 章概览。`);
+      return true;
+    } catch (err) {
+      setError("删除章节概览失败，请检查后端是否可用。");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const approvePendingChange = async (changeId, patch) => {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/api/pending-changes/${changeId}/approve`, {
+        method: "POST",
+        body: JSON.stringify(patch ? { patch } : {}),
+      });
+      await load();
+      setNotice("已批准并写入正式资料。");
+    } catch (err) {
+      setError("批准失败：待审核内容格式可能仍不符合当前模块结构。");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const rejectPendingChange = async (changeId) => {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/api/pending-changes/${changeId}/reject`, { method: "POST" });
+      await load();
+      setNotice("已拒绝该待审核草稿。");
+    } catch (err) {
+      setError("拒绝失败，请检查后端是否可用。");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const saveFaction = async (draft) => {
@@ -1148,60 +1946,202 @@ function App() {
     setNotice("");
   };
 
+  const openProject = async (projectId) => {
+    if (!projectId) {
+      return;
+    }
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/api/projects/${projectId}/switch`, { method: "POST" });
+      setSelectedCharacterName("");
+      setSelectedFactionName("");
+      await load({ resetSelection: true });
+      setActiveView("characters");
+      setNotice("已切换小说。");
+    } catch (err) {
+      setError("切换小说失败，请检查后端是否可用。");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const createProjectFromDraft = async (draft) => {
+    const title = draft.title.trim();
+    if (!title) {
+      setError("请先填写书名。");
+      return false;
+    }
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api("/api/projects", {
+        method: "POST",
+        body: JSON.stringify({
+          title,
+          genre: draft.genre,
+          premise: draft.premise.trim(),
+        }),
+      });
+      setSelectedCharacterName("");
+      setSelectedFactionName("");
+      await load({ resetSelection: true });
+      setProjectDraft({ title: "", genre: "玄幻", premise: "" });
+      setProjectAdding(false);
+      setActiveView("characters");
+      setNotice("已创建小说。");
+      return true;
+    } catch (err) {
+      setError("创建小说失败，请检查后端是否可用。");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const updateProjectFromDraft = async (projectId, draft) => {
+    const title = draft.title.trim();
+    if (!projectId || !title) {
+      setError("请先填写书名。");
+      return false;
+    }
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/api/projects/${projectId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          title,
+          genre: draft.genre,
+          premise: draft.premise.trim(),
+        }),
+      });
+      await load();
+      setNotice("已更新小说信息。");
+      return true;
+    } catch (err) {
+      setError("更新小说失败，请检查后端是否可用。");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const deleteProjectFromShelf = async (project) => {
+    if (!project?.id) {
+      return false;
+    }
+    const title = projectTitle(project);
+    const confirmed = window.confirm(`确定删除小说「${title}」吗？删除后会同时删除这本书下的人物、势力、地图、时间线等资料。`);
+    if (!confirmed) {
+      return false;
+    }
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api(`/api/projects/${project.id}`, { method: "DELETE" });
+      setSelectedCharacterName("");
+      setSelectedFactionName("");
+      await load({ resetSelection: true });
+      setActiveView("bookshelf");
+      setNotice("已删除小说。");
+      return true;
+    } catch (err) {
+      setError("删除小说失败，请检查后端是否可用。");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const activeMeta = viewMeta[activeView];
 
   return (
     <div className="appShell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">小说知识库</p>
-          <h1>{activeMeta.title}</h1>
-          <p className="subtle">
-            {projectTitle(dashboard?.project)}，浏览器优先，手动修改与 LLM 写入都同步到同一份数据库。
-          </p>
-          <p className="subtle subtleSecondary">{activeMeta.subtitle}</p>
+          <p className="eyebrow">{activeView === "bookshelf" ? "小说知识库" : `${activeProject?.genre || "未分类"} · 当前小说`}</p>
+          <h1>{activeView === "bookshelf" ? activeMeta.title : projectTitle(activeProject)}</h1>
+          {activeView === "bookshelf" ? <p className="subtle">{activeMeta.subtitle}</p> : null}
         </div>
         <div className="topbarActions">
-        <div className="viewTabs" role="tablist" aria-label="页面切换">
-          <button
-            type="button"
-            className={activeView === "characters" ? "viewTab active" : "viewTab"}
-            onClick={() => setActiveView("characters")}
-            >
-              <UserRound size={16} />
-              人物信息
-            </button>
-            <button
-              type="button"
-              className={activeView === "powerSystem" ? "viewTab active" : "viewTab"}
-              onClick={() => setActiveView("powerSystem")}
-            >
-              <BookOpen size={16} />
-              境界体系
-            </button>
-            <button
-              type="button"
-              className={activeView === "factions" ? "viewTab active" : "viewTab"}
-              onClick={() => setActiveView("factions")}
-            >
-              <Shield size={16} />
-              势力结构
-            </button>
-            <button
-              type="button"
-              className={activeView === "maps" ? "viewTab active" : "viewTab"}
-              onClick={() => setActiveView("maps")}
-            >
-              <MapIcon size={16} />
-              世界图册
-            </button>
-          </div>
-          {activeView === "factions" ? (
-            <button className="ghostButton" onClick={createFaction} disabled={loading || saving}>
+          {activeView === "bookshelf" ? (
+            <button className="saveButton" onClick={() => setProjectAdding((value) => !value)} disabled={loading || saving}>
               <Plus size={16} />
-              新建势力
+              手动添加小说
             </button>
-          ) : null}
+          ) : (
+            <>
+              <button className="ghostButton" onClick={() => setActiveView("bookshelf")} disabled={loading || saving}>
+                返回小说页
+              </button>
+              <div className="viewTabs" role="tablist" aria-label="页面切换">
+                <button
+                  type="button"
+                  className={activeView === "characters" ? "viewTab active" : "viewTab"}
+                  onClick={() => setActiveView("characters")}
+                >
+                  <UserRound size={16} />
+                  人物信息
+                </button>
+                {showPowerSystem ? (
+                  <button
+                    type="button"
+                    className={activeView === "powerSystem" ? "viewTab active" : "viewTab"}
+                    onClick={() => setActiveView("powerSystem")}
+                  >
+                    <BookOpen size={16} />
+                    境界体系
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className={activeView === "factions" ? "viewTab active" : "viewTab"}
+                  onClick={() => setActiveView("factions")}
+                >
+                  <Shield size={16} />
+                  势力结构
+                </button>
+                <button
+                  type="button"
+                  className={activeView === "maps" ? "viewTab active" : "viewTab"}
+                  onClick={() => setActiveView("maps")}
+                >
+                  <MapIcon size={16} />
+                  世界图册
+                </button>
+                <button
+                  type="button"
+                  className={activeView === "timeline" ? "viewTab active" : "viewTab"}
+                  onClick={() => setActiveView("timeline")}
+                >
+                  <Clock3 size={16} />
+                  故事时间线
+                </button>
+                <button
+                  type="button"
+                  className={activeView === "chapters" ? "viewTab active" : "viewTab"}
+                  onClick={() => setActiveView("chapters")}
+                >
+                  <FileText size={16} />
+                  章节概览
+                </button>
+                <button
+                  type="button"
+                  className={activeView === "pending" ? "viewTab active" : "viewTab"}
+                  onClick={() => setActiveView("pending")}
+                >
+                  <CheckCircle2 size={16} />
+                  待审核
+                  {pendingChanges.length ? <span className="tabBadge">{pendingChanges.length}</span> : null}
+                </button>
+              </div>
+            </>
+          )}
           <button className="ghostButton" onClick={load} disabled={loading || saving}>
             <RefreshCw size={16} />
             刷新
@@ -1217,6 +2157,35 @@ function App() {
           <h2>正在读取资料</h2>
           <p>浏览器会直接读取后端数据库中的最新信息。</p>
         </main>
+      ) : activeView === "bookshelf" ? (
+        <BookshelfWorkspace
+          projects={projects}
+          activeProject={activeProject}
+          adding={projectAdding}
+          draft={projectDraft}
+          saving={saving}
+          onSetAdding={setProjectAdding}
+          onSetDraft={setProjectDraft}
+          onCreate={createProjectFromDraft}
+          onUpdate={updateProjectFromDraft}
+          onDelete={deleteProjectFromShelf}
+          onOpen={openProject}
+        />
+      ) : activeView === "pending" ? (
+        pendingChanges.length ? (
+          <PendingPreviewPanel
+            changes={pendingChanges}
+            title="全部待审核草稿"
+            saving={saving}
+            onApprove={approvePendingChange}
+            onReject={rejectPendingChange}
+          />
+        ) : (
+          <main className="emptyState">
+            <h2>没有待审核草稿</h2>
+            <p>LLM 提交并通过格式校验的资料会先出现在这里。</p>
+          </main>
+        )
       ) : activeView === "characters" ? (
         <CharacterWorkspace
           characters={characters}
@@ -1227,9 +2196,19 @@ function App() {
           onSave={saveCharacter}
           onToggleStatus={toggleCharacterStatus}
           onUpdateRole={updateCharacterRole}
+          pendingChanges={modulePendingChanges(pendingChanges, "characters")}
+          onApprovePending={approvePendingChange}
+          onRejectPending={rejectPendingChange}
         />
       ) : activeView === "powerSystem" ? (
-        <PowerSystemWorkspace powerSystem={powerSystem} saving={saving} onSave={savePowerSystem} />
+        <PowerSystemWorkspace
+          powerSystem={powerSystem}
+          saving={saving}
+          onSave={savePowerSystem}
+          pendingChanges={modulePendingChanges(pendingChanges, "powerSystem")}
+          onApprovePending={approvePendingChange}
+          onRejectPending={rejectPendingChange}
+        />
       ) : activeView === "maps" ? (
         <MapWorkspace
           world={world}
@@ -1239,6 +2218,28 @@ function App() {
           onDeleteMap={deleteMapImage}
           onSaveMap={saveMapImage}
           onUpdateMap={updateMapImage}
+          pendingChanges={modulePendingChanges(pendingChanges, "maps")}
+          onApprovePending={approvePendingChange}
+          onRejectPending={rejectPendingChange}
+        />
+      ) : activeView === "timeline" ? (
+        <TimelineWorkspace
+          timeline={timeline}
+          pendingChanges={modulePendingChanges(pendingChanges, "timeline")}
+          saving={saving}
+          onApprovePending={approvePendingChange}
+          onRejectPending={rejectPendingChange}
+        />
+      ) : activeView === "chapters" ? (
+        <ChapterOverviewWorkspace
+          chapterSummaries={chapterSummaries}
+          timeline={timeline}
+          saving={saving}
+          onSaveChapterSummary={saveChapterSummary}
+          onDeleteChapterSummary={deleteChapterSummary}
+          pendingChanges={modulePendingChanges(pendingChanges, "chapters")}
+          onApprovePending={approvePendingChange}
+          onRejectPending={rejectPendingChange}
         />
       ) : (
         <FactionWorkspace
@@ -1251,9 +2252,183 @@ function App() {
           onSave={saveFaction}
           onDelete={deleteFaction}
           onNew={createFaction}
+          pendingChanges={modulePendingChanges(pendingChanges, "factions")}
+          onApprovePending={approvePendingChange}
+          onRejectPending={rejectPendingChange}
         />
       )}
     </div>
+  );
+}
+
+function BookshelfWorkspace({
+  projects = [],
+  activeProject,
+  adding,
+  draft,
+  saving,
+  onSetAdding,
+  onSetDraft,
+  onCreate,
+  onUpdate = async () => false,
+  onDelete = async () => false,
+  onOpen,
+}) {
+  const [editingProjectId, setEditingProjectId] = useState(null);
+  const [editDraft, setEditDraft] = useState({ title: "", genre: "玄幻", premise: "" });
+
+  const setDraftField = (field, value) => {
+    onSetDraft((current) => ({ ...current, [field]: value }));
+  };
+
+  const setEditField = (field, value) => {
+    setEditDraft((current) => ({ ...current, [field]: value }));
+  };
+
+  const submit = async () => {
+    await onCreate(draft);
+  };
+
+  const startEdit = (project) => {
+    setEditingProjectId(project.id);
+    setEditDraft({
+      title: projectTitle(project),
+      genre: project.genre || "其他",
+      premise: project.premise || "",
+    });
+  };
+
+  const submitEdit = async (projectId) => {
+    const ok = await onUpdate(projectId, editDraft);
+    if (ok) {
+      setEditingProjectId(null);
+    }
+  };
+
+  const deleteProject = async (project) => {
+    const ok = await onDelete(project);
+    if (ok && editingProjectId === project.id) {
+      setEditingProjectId(null);
+    }
+  };
+
+  return (
+    <main className="bookshelfWorkspace">
+      {adding ? (
+        <section className="projectAddPanel" aria-label="手动添加小说">
+          <div className="sectionHeader">
+            <h3>手动添加小说</h3>
+            <p>创建后会自动切换到新书的人物信息页，后续资料仍由正式页面维护。</p>
+          </div>
+          <div className="fieldGrid projectFormGrid">
+            <label>
+              <span>书名</span>
+              <input value={draft.title} onChange={(event) => setDraftField("title", event.target.value)} placeholder="例如：长夜星火" />
+            </label>
+            <label>
+              <span>题材</span>
+              <select value={draft.genre} onChange={(event) => setDraftField("genre", event.target.value)}>
+                <option>玄幻</option>
+                <option>仙侠</option>
+                <option>都市</option>
+                <option>末日</option>
+                <option>奇幻</option>
+                <option>科幻</option>
+                <option>悬疑</option>
+                <option>其他</option>
+              </select>
+            </label>
+            <label className="spanTwo">
+              <span>简介</span>
+              <textarea value={draft.premise} onChange={(event) => setDraftField("premise", event.target.value)} placeholder="写一句这本书的核心设定或主线。" />
+            </label>
+          </div>
+          <div className="saveBar">
+            <button className="ghostButton" type="button" onClick={() => onSetAdding(false)} disabled={saving}>
+              取消
+            </button>
+            <button className="saveButton" type="button" onClick={submit} disabled={saving || !draft.title.trim()}>
+              创建小说
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {projects.length ? (
+        <section className="projectGrid" aria-label="小说列表">
+          {projects.map((project) => {
+            const fantasy = isFantasyProject(project);
+            const editing = editingProjectId === project.id;
+            return (
+              <article className={project.id === activeProject?.id ? "projectCard active" : "projectCard"} key={project.id}>
+                <button className="projectOpenButton" type="button" onClick={() => onOpen(project.id)} disabled={saving}>
+                  <span className="projectCardHead">
+                    <span>
+                      <strong className="projectCardTitle">{projectTitle(project)}</strong>
+                      <span className={fantasy ? "genreTag fantasy" : "genreTag"}>{project.genre || "未分类"}</span>
+                    </span>
+                    {project.id === activeProject?.id ? <span className="overviewBadge">当前</span> : <span className="chip">进入</span>}
+                  </span>
+                  <span className="projectIntro">{project.premise || "这本小说还没有简介。"}</span>
+                  <span className="projectFooter">
+                    <span>更新：{projectUpdatedLabel(project)}</span>
+                    <span>{fantasy ? "含境界体系" : "通用资料"}</span>
+                  </span>
+                </button>
+                <div className="projectCardActions">
+                  <button className="ghostButton smallButton" type="button" onClick={() => startEdit(project)} disabled={saving}>
+                    <Pencil size={14} />
+                    编辑
+                  </button>
+                  <button className="dangerGhostButton smallButton" type="button" onClick={() => deleteProject(project)} disabled={saving}>
+                    <Trash2 size={14} />
+                    删除
+                  </button>
+                </div>
+                {editing ? (
+                  <div className="projectEditPanel">
+                    <label>
+                      <span>书名</span>
+                      <input value={editDraft.title} onChange={(event) => setEditField("title", event.target.value)} />
+                    </label>
+                    <label>
+                      <span>题材</span>
+                      <select value={editDraft.genre} onChange={(event) => setEditField("genre", event.target.value)}>
+                        <option>玄幻</option>
+                        <option>仙侠</option>
+                        <option>都市</option>
+                        <option>末日</option>
+                        <option>奇幻</option>
+                        <option>科幻</option>
+                        <option>悬疑</option>
+                        <option>其他</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>简介</span>
+                      <textarea value={editDraft.premise} onChange={(event) => setEditField("premise", event.target.value)} />
+                    </label>
+                    <div className="projectEditActions">
+                      <button className="ghostButton smallButton" type="button" onClick={() => setEditingProjectId(null)} disabled={saving}>
+                        取消
+                      </button>
+                      <button className="saveButton smallButton" type="button" onClick={() => submitEdit(project.id)} disabled={saving || !editDraft.title.trim()}>
+                        保存
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+              </article>
+            );
+          })}
+        </section>
+      ) : (
+        <section className="emptyState">
+          <h2>还没有小说项目</h2>
+          <p>先手动添加一本小说，再进入人物、地图、时间线等资料页。</p>
+        </section>
+      )}
+    </main>
   );
 }
 
@@ -1266,6 +2441,9 @@ function CharacterWorkspace({
   onSave,
   onToggleStatus,
   onUpdateRole,
+  pendingChanges = [],
+  onApprovePending,
+  onRejectPending,
 }) {
   return (
     <main className="workspace">
@@ -1295,6 +2473,7 @@ function CharacterWorkspace({
           ) : (
             <p className="muted">当前项目还没有角色数据。</p>
           )}
+          <InlinePendingList changes={pendingChanges} saving={saving} onApprove={onApprovePending} onReject={onRejectPending} />
         </div>
       </aside>
 
@@ -1319,7 +2498,7 @@ function CharacterWorkspace({
   );
 }
 
-function PowerSystemWorkspace({ powerSystem, saving, onSave }) {
+function PowerSystemWorkspace({ powerSystem, saving, onSave, pendingChanges = [], onApprovePending, onRejectPending }) {
   const [draft, setDraft] = useState(() => powerSystemDraft(powerSystem));
   const [selectedTierIndex, setSelectedTierIndex] = useState(null);
   const [expandedTierIndexes, setExpandedTierIndexes] = useState([]);
@@ -1476,6 +2655,7 @@ function PowerSystemWorkspace({ powerSystem, saving, onSave }) {
           ) : (
             <p className="muted">当前项目还没有境界体系条目。</p>
           )}
+          <InlinePendingList changes={pendingChanges} saving={saving} onApprove={onApprovePending} onReject={onRejectPending} />
         </div>
         <button className="ghostButton" onClick={addTier} disabled={saving}>
           <Plus size={16} />
@@ -1674,7 +2854,18 @@ function PowerSystemWorkspace({ powerSystem, saving, onSave }) {
   );
 }
 
-function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, onSaveMap, onUpdateMap = async () => null }) {
+function MapWorkspace({
+  world,
+  saving,
+  onSaveNode,
+  onDeleteNode,
+  onDeleteMap,
+  onSaveMap,
+  onUpdateMap = async () => null,
+  pendingChanges = [],
+  onApprovePending,
+  onRejectPending,
+}) {
   const baseMaps = useMemo(() => buildMapAtlas(world), [world]);
   const viewportRef = useRef(null);
   const jsonInputRef = useRef(null);
@@ -2155,12 +3346,13 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
     .filter((node) => normalizeNodeShape(node.shape) === "polygon" && node.polygon_points?.length)
     .slice()
     .sort((left, right) => polygonArea(right.polygon_points || []) - polygonArea(left.polygon_points || []));
+  const hiddenPolygonNodes = polygonNodes.filter((node) => hiddenAreaIds.has(node.id));
   const visiblePolygonNodes = polygonNodes.filter((node) => !hiddenAreaIds.has(node.id));
   const pointNodes = nodes.filter((node) => normalizeNodeShape(node.shape) !== "polygon" || !node.polygon_points?.length);
   const routePairs = pointNodes.slice(0, 8).flatMap((node, index, list) => (list[index + 1] ? [[node, list[index + 1]]] : []));
   const selectedIsArea = Boolean(selectedNode && normalizeNodeShape(selectedNode.shape) === "polygon");
   const selectedAreaHidden = Boolean(selectedIsArea && selectedNode && hiddenAreaIds.has(selectedNode.id));
-  const hiddenAreaCount = polygonNodes.length - visiblePolygonNodes.length;
+  const hiddenAreaCount = hiddenPolygonNodes.length;
   const hasMapImage = Boolean(activeMap?.imageId && activeMap?.imageData && activeMap.imageData !== EMPTY_MAP_IMAGE_DATA);
 
   const selectPolygonAtEvent = (event, fallbackNode) => {
@@ -2175,21 +3367,34 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
     setEditing(false);
   };
 
+  const showHiddenArea = (nodeId) => {
+    setHiddenAreaIds((current) => {
+      if (!current.has(nodeId)) {
+        return current;
+      }
+      const next = new Set(current);
+      next.delete(nodeId);
+      return next;
+    });
+    setSelectedNodeId(nodeId);
+    setHighlightedNodeId(nodeId);
+    setEditing(false);
+  };
+
   const toggleSelectedAreaVisibility = () => {
     if (!selectedIsArea || !selectedNode) {
       return;
     }
-    const willShowArea = hiddenAreaIds.has(selectedNode.id);
+    if (hiddenAreaIds.has(selectedNode.id)) {
+      showHiddenArea(selectedNode.id);
+      return;
+    }
     setHiddenAreaIds((current) => {
       const next = new Set(current);
-      if (next.has(selectedNode.id)) {
-        next.delete(selectedNode.id);
-      } else {
-        next.add(selectedNode.id);
-      }
+      next.add(selectedNode.id);
       return next;
     });
-    setHighlightedNodeId(willShowArea ? selectedNode.id : "");
+    setHighlightedNodeId("");
   };
 
   return (
@@ -2223,6 +3428,7 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
               <small className="mapAtlasSummary">{map.summary || map.scope || "这张地图还没有说明。"}</small>
             </button>
           ))}
+          <InlinePendingList changes={pendingChanges} saving={saving} onApprove={onApprovePending} onReject={onRejectPending} />
         </div>
         <button className="ghostButton mapNewButton" type="button" onClick={startNewNode} disabled={saving}>
           <Plus size={16} />
@@ -2518,6 +3724,26 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
                           .join("、")}
                       </div>
                     </div>
+                    {hiddenPolygonNodes.length ? (
+                      <div className="kv">
+                        <span>隐藏区域</span>
+                        <div className="hiddenAreaList">
+                          {hiddenPolygonNodes.map((node) => (
+                            <button
+                              key={`hidden-area-${node.id}`}
+                              className="chip hiddenAreaButton"
+                              type="button"
+                              onClick={() => showHiddenArea(node.id)}
+                              disabled={saving}
+                              aria-label={`显示隐藏区域 ${node.name}`}
+                            >
+                              <Eye size={14} />
+                              {node.name}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </>
               )}
@@ -2767,6 +3993,852 @@ function MapWorkspace({ world, saving, onSaveNode, onDeleteNode, onDeleteMap, on
   );
 }
 
+function TimelineWorkspace({ timeline = [], pendingChanges = [], saving = false, onApprovePending, onRejectPending }) {
+  const pageRef = useRef(null);
+  const treeRef = useRef(null);
+  const navRef = useRef(null);
+  const closeTimerRef = useRef(null);
+  const [activeFilter, setActiveFilter] = useState("全部");
+  const [keyword, setKeyword] = useState("");
+  const [activeEventId, setActiveEventId] = useState("");
+  const [visibleDetailId, setVisibleDetailId] = useState("");
+  const [closingDetailId, setClosingDetailId] = useState("");
+  const [bottomAlignedIds, setBottomAlignedIds] = useState([]);
+  const [detailMaxHeights, setDetailMaxHeights] = useState({});
+  const [expandedEras, setExpandedEras] = useState([]);
+  const normalizedEvents = useMemo(
+    () => timeline.filter((event) => !isChapterSummaryTimelineSignal(event)).map((event, index) => normalizeTimelineEvent(event, index)),
+    [timeline]
+  );
+  const filteredEvents = useMemo(
+    () =>
+      normalizedEvents
+        .filter((event) => timelineEventMatches(event, activeFilter, keyword.trim()))
+        .sort((left, right) => left.sort - right.sort),
+    [normalizedEvents, activeFilter, keyword]
+  );
+  const groups = useMemo(() => groupTimelineByEra(filteredEvents), [filteredEvents]);
+
+  useEffect(() => {
+    if (activeEventId && !filteredEvents.some((event) => event.id === activeEventId)) {
+      setActiveEventId("");
+      setVisibleDetailId("");
+      setClosingDetailId("");
+    }
+  }, [activeEventId, filteredEvents]);
+
+  useEffect(() => {
+    const scope = treeRef.current;
+    if (!scope || prefersReducedMotion()) {
+      return;
+    }
+    const ctx = gsap.context(() => {
+      const timelineAnimation = gsap.timeline({ defaults: { duration: 0.36, ease: "power2.out" } });
+      timelineAnimation
+        .from(".eraHeader", { autoAlpha: 0, y: 10, stagger: 0.05 })
+        .from(".treeDot", { autoAlpha: 0, scale: 0.82, stagger: 0.035 }, "<0.02")
+        .from(".eventCard", { autoAlpha: 0, y: 16, stagger: 0.04 }, "<0.08");
+    }, scope);
+    return () => ctx.revert();
+  }, [activeFilter, keyword, timeline.length]);
+
+  const updateNavigatorPosition = () => {
+    const page = pageRef.current;
+    const nav = navRef.current;
+    const tree = treeRef.current;
+    if (!page || !nav || !tree) {
+      return;
+    }
+    if (window.innerWidth <= 1080) {
+      nav.classList.remove("isSticky");
+      nav.style.top = "";
+      nav.style.left = "";
+      nav.style.right = "";
+      return;
+    }
+
+    const stickyTop = 118;
+    const rightGap = 18;
+    const pageRect = page.getBoundingClientRect();
+    const navWidth = nav.offsetWidth;
+    const naturalTop = tree.offsetTop;
+    const naturalViewportTop = pageRect.top + naturalTop;
+    const fixedLeft = window.innerWidth - navWidth - rightGap;
+    const absoluteLeft = fixedLeft - pageRect.left;
+
+    nav.style.left = `${absoluteLeft}px`;
+    nav.style.right = "auto";
+
+    if (naturalViewportTop <= stickyTop) {
+      nav.classList.add("isSticky");
+      nav.style.top = `${stickyTop}px`;
+      nav.style.left = `${fixedLeft}px`;
+    } else {
+      nav.classList.remove("isSticky");
+      nav.style.top = `${naturalTop}px`;
+    }
+  };
+
+  useEffect(() => {
+    updateNavigatorPosition();
+    window.addEventListener("resize", updateNavigatorPosition);
+    window.addEventListener("scroll", updateNavigatorPosition, { passive: true });
+    return () => {
+      window.removeEventListener("resize", updateNavigatorPosition);
+      window.removeEventListener("scroll", updateNavigatorPosition);
+    };
+  }, [groups.length, expandedEras.length]);
+
+  useEffect(() => {
+    updateNavigatorPosition();
+  }, [groups, expandedEras]);
+
+  useEffect(() => {
+    if (!visibleDetailId) {
+      return;
+    }
+    const detail = treeRef.current?.querySelector(`[data-detail="${visibleDetailId}"]`);
+    const wrap = detail?.closest(".eventWrap");
+    if (!detail || !wrap) {
+      return;
+    }
+    const wrapRect = wrap.getBoundingClientRect();
+    const detailHeight = detail.scrollHeight;
+    const wouldOverflow = wrapRect.top + detailHeight > window.innerHeight - 24;
+    const topIfBottomAligned = wrapRect.bottom - detailHeight;
+    const shouldBottomAlign = wouldOverflow && topIfBottomAligned >= 24;
+    setBottomAlignedIds((current) => {
+      const next = new Set(current);
+      if (shouldBottomAlign) {
+        next.add(visibleDetailId);
+      } else {
+        next.delete(visibleDetailId);
+      }
+      return [...next];
+    });
+    setDetailMaxHeights((current) => {
+      const next = { ...current };
+      if (wouldOverflow && !shouldBottomAlign) {
+        next[visibleDetailId] = Math.max(260, window.innerHeight - wrapRect.top - 24);
+      } else {
+        delete next[visibleDetailId];
+      }
+      return next;
+    });
+  }, [visibleDetailId]);
+
+  useEffect(() => {
+    if (!visibleDetailId) {
+      return;
+    }
+    const detail = treeRef.current?.querySelector(`[data-detail="${visibleDetailId}"]`);
+    if (!detail || prefersReducedMotion()) {
+      return;
+    }
+    gsap.fromTo(detail, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.18, ease: "power2.out", overwrite: "auto" });
+  }, [visibleDetailId]);
+
+  useEffect(() => () => window.clearTimeout(closeTimerRef.current), []);
+
+  const selectEvent = (eventId) => {
+    window.clearTimeout(closeTimerRef.current);
+    if (activeEventId === eventId) {
+      setActiveEventId("");
+      setClosingDetailId(eventId);
+      const detail = treeRef.current?.querySelector(`[data-detail="${eventId}"]`);
+      if (detail && !prefersReducedMotion()) {
+        gsap.to(detail, {
+          autoAlpha: 0,
+          y: 8,
+          duration: 0.18,
+          ease: "power2.out",
+          overwrite: "auto",
+          onComplete: () => {
+            setVisibleDetailId("");
+            setClosingDetailId("");
+            setBottomAlignedIds((current) => current.filter((id) => id !== eventId));
+            setDetailMaxHeights((current) => {
+              const next = { ...current };
+              delete next[eventId];
+              return next;
+            });
+          },
+        });
+      } else {
+        closeTimerRef.current = window.setTimeout(() => {
+          setVisibleDetailId("");
+          setClosingDetailId("");
+          setBottomAlignedIds((current) => current.filter((id) => id !== eventId));
+          setDetailMaxHeights((current) => {
+            const next = { ...current };
+            delete next[eventId];
+            return next;
+          });
+        }, 0);
+      }
+      return;
+    }
+    setClosingDetailId("");
+    setActiveEventId(eventId);
+    setVisibleDetailId(eventId);
+  };
+
+  const toggleEra = (era) => {
+    setExpandedEras((current) => (current.includes(era) ? current.filter((item) => item !== era) : [...current, era]));
+  };
+
+  const jumpToEvent = (eventId) => {
+    selectEvent(eventId);
+    treeRef.current?.querySelector(`[data-wrap="${eventId}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  return (
+    <main className="timelinePage" ref={pageRef}>
+      <section className="timelineToolbar">
+        <label className="timelineSearchBox">
+          <span>搜索事件</span>
+          <input
+            type="search"
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+            placeholder="纪年、人物、地点、势力、伏笔关键词"
+          />
+        </label>
+        <div className="timelineFilterGrid">
+          {timelineFilters.map((filter) => (
+            <button
+              className={filter.id === activeFilter ? "filterButton active" : "filterButton"}
+              key={filter.id}
+              type="button"
+              onClick={() => setActiveFilter(filter.id)}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <aside className="eraNavigator" ref={navRef} aria-label="纪年导航">
+        <div className="panelHead">
+          <h2>纪年导航</h2>
+          <span className="chip">{groups.length} 纪</span>
+        </div>
+        {groups.map((group) => {
+          const collapsed = !expandedEras.includes(group.era);
+          return (
+            <section className={collapsed ? "eraNavGroup collapsed" : "eraNavGroup"} key={group.era}>
+              <button className="eraNavToggle" type="button" onClick={() => toggleEra(group.era)}>
+                {group.era}
+                <span>{group.events.length} 条</span>
+              </button>
+              <div className="eraNavItems">
+                {group.events.map((event) => (
+                  <button
+                    className={event.id === activeEventId ? "eraNavItem active" : "eraNavItem"}
+                    type="button"
+                    key={event.id}
+                    onClick={() => jumpToEvent(event.id)}
+                  >
+                    {event.year}
+                    <br />
+                    {event.title}
+                  </button>
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </aside>
+
+      <section className="timelineTree" ref={treeRef}>
+        <InlinePendingList changes={pendingChanges} saving={saving} onApprove={onApprovePending} onReject={onRejectPending} />
+        {!groups.length ? (
+          <div className="timelineEmpty">没有符合当前筛选条件的纪年事件。</div>
+        ) : (
+          groups.map((group) => (
+            <section className="eraBlock" key={group.era}>
+              <div className="eraHeader">
+                <strong>{group.era}</strong>
+                <span>{group.events.length} 条事件</span>
+              </div>
+              {group.events.map((event) => (
+                <TimelineTimeNode
+                  activeEventId={activeEventId}
+                  bottomAligned={bottomAlignedIds.includes(event.id)}
+                  closing={closingDetailId === event.id}
+                  detailMaxHeight={detailMaxHeights[event.id] || 0}
+                  event={event}
+                  key={event.id}
+                  onSelect={selectEvent}
+                  visible={visibleDetailId === event.id}
+                />
+              ))}
+            </section>
+          ))
+        )}
+      </section>
+    </main>
+  );
+}
+
+function TimelineTimeNode({ event, activeEventId, visible, closing, bottomAligned, detailMaxHeight, onSelect }) {
+  const leftEvent = event.side === "left";
+  return (
+    <div className="timeNode">
+      <div className="side left">{leftEvent ? <TimelineEventWrap event={event} activeEventId={activeEventId} visible={visible} closing={closing} bottomAligned={bottomAligned} detailMaxHeight={detailMaxHeight} onSelect={onSelect} /> : null}</div>
+      <div className="treeDot" aria-hidden="true"></div>
+      <div className="side right">{!leftEvent ? <TimelineEventWrap event={event} activeEventId={activeEventId} visible={visible} closing={closing} bottomAligned={bottomAligned} detailMaxHeight={detailMaxHeight} onSelect={onSelect} /> : null}</div>
+    </div>
+  );
+}
+
+function TimelineEventWrap({ event, activeEventId, visible, closing, bottomAligned, detailMaxHeight, onSelect }) {
+  return (
+    <div className={`eventWrap ${event.side}`} data-wrap={event.id}>
+      <span className="connector"></span>
+      <span className="timeRibbon">
+        {event.year}
+        {event.timeNote ? (
+          <>
+            <br />
+            {event.timeNote}
+          </>
+        ) : null}
+      </span>
+      <button className={event.id === activeEventId ? "eventCard active" : "eventCard"} type="button" onClick={() => onSelect(event.id)}>
+        <div className="eventHead">
+          <h3>{event.title}</h3>
+          <span className={`typePill ${timelineTypeClass[event.type] || ""}`}>{event.type}</span>
+        </div>
+        <p className="eventSummary">{event.summary}</p>
+        <div className="eventMeta">
+          <span className="chip">叙述：{event.narrative}</span>
+          <span className="chip">{event.location}</span>
+        </div>
+        <div className="eventTags">
+          {event.characters.slice(0, 3).map((name) => (
+            <span className="chip" key={name}>
+              {name}
+            </span>
+          ))}
+          {event.hooks.slice(0, 2).map((hook) => (
+            <span className="chip" key={hook}>
+              {hook}
+            </span>
+          ))}
+        </div>
+      </button>
+      {visible || closing ? <TimelineDetail event={event} visible={visible || closing} bottomAligned={bottomAligned} detailMaxHeight={detailMaxHeight} /> : null}
+    </div>
+  );
+}
+
+function TimelineDetail({ event, visible, bottomAligned, detailMaxHeight }) {
+  return (
+    <section
+      className={`detailCard ${visible ? "isOpen" : ""} ${bottomAligned ? "alignBottom" : ""} ${detailMaxHeight ? "constrainHeight" : ""}`}
+      data-detail={event.id}
+      style={detailMaxHeight ? { "--detail-max-height": `${detailMaxHeight}px` } : undefined}
+    >
+      <p className="eyebrow">事件详情</p>
+      <h3>{event.title}</h3>
+      <p className="detailLead">
+        {event.year}
+        {event.timeNote ? `，${event.timeNote}` : ""}
+      </p>
+      <div className="detailDivider"></div>
+      <div className="kvList">
+        <div className="kv">
+          <span>事件类型</span>
+          <div className="eventTags">
+            <span className={`typePill ${timelineTypeClass[event.type] || ""}`}>{event.type}</span>
+            <span className="chip">{event.narrative}</span>
+          </div>
+        </div>
+        <div className="kv">
+          <span>事件经过</span>
+          <div>{event.summary}</div>
+        </div>
+        <div className="kv">
+          <span>涉及人物</span>
+          <div className="eventTags">
+            {event.characters.length ? event.characters.map((name) => <span className="chip" key={name}>{name}</span>) : <span className="chip">未记录</span>}
+          </div>
+        </div>
+        <div className="kv">
+          <span>地点与势力</span>
+          <div className="eventTags">
+            <span className="chip">{event.location}</span>
+            {event.factions.map((name) => (
+              <span className="chip" key={name}>
+                {name}
+              </span>
+            ))}
+          </div>
+        </div>
+        <div className="kv">
+          <span>影响结果</span>
+          <div>{event.consequences}</div>
+        </div>
+        <div className="kv">
+          <span>伏笔变化</span>
+          <div className="hookBox">
+            {event.hooks.length ? (
+              event.hooks.map((hook, index) => (
+                <div className="hookItem" key={hook}>
+                  <strong>{hook}</strong>
+                  <span>{index === 0 ? "当前事件重点伏笔，后续章节需要持续追踪。" : "关联伏笔，进入纪年时间树索引。"}</span>
+                </div>
+              ))
+            ) : (
+              <div className="hookItem">
+                <strong>暂无伏笔记录</strong>
+                <span>后续可由作者或 LLM 补充。</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ChapterOverviewWorkspace({
+  chapterSummaries = [],
+  timeline = [],
+  saving = false,
+  onSaveChapterSummary = async () => false,
+  onDeleteChapterSummary = async () => false,
+  pendingChanges = [],
+  onApprovePending,
+  onRejectPending,
+}) {
+  const [{ chapters, events }, setOverview] = useState(() => buildChapterOverview(chapterSummaries, timeline));
+  const [activeChapter, setActiveChapter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState("全部");
+  const [keyword, setKeyword] = useState("");
+  const [activeEventId, setActiveEventId] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [editingChapter, setEditingChapter] = useState(0);
+  const [draft, setDraft] = useState({
+    chapter: "1",
+    title: "",
+    summary: "",
+    facts_text: "",
+    hooks_text: "",
+  });
+
+  useEffect(() => {
+    const next = buildChapterOverview(chapterSummaries, timeline);
+    setOverview(next);
+    setActiveEventId((current) => {
+      if (current && next.events.some((event) => event.id === current)) {
+        return current;
+      }
+      return next.events[0]?.id || "";
+    });
+  }, [chapterSummaries, timeline]);
+
+  const summaryByChapter = useMemo(() => {
+    return new Map(chapterSummaries.map((summary) => [normalizeChapterNumber(summary.chapter), summary]));
+  }, [chapterSummaries]);
+
+  const filteredEvents = useMemo(() => {
+    const needle = keyword.trim();
+    return events.filter((event) => {
+      const chapterOk = activeChapter === "all" || event.chapter === Number(activeChapter.replace("chapter-", ""));
+      const typeOk = activeFilter === "全部" || event.type === activeFilter;
+      const text = [
+        event.title,
+        event.summary,
+        event.location,
+        event.time,
+        event.status,
+        event.characters.join(" "),
+        event.factions.join(" "),
+        event.hooks.join(" "),
+      ].join(" ");
+      return chapterOk && typeOk && (!needle || text.includes(needle));
+    });
+  }, [activeChapter, activeFilter, events, keyword]);
+
+  useEffect(() => {
+    if (filteredEvents.length && !filteredEvents.some((event) => event.id === activeEventId)) {
+      setActiveEventId(filteredEvents[0].id);
+    }
+  }, [activeEventId, filteredEvents]);
+
+  const activeEvent = events.find((event) => event.id === activeEventId) || filteredEvents[0] || events[0] || null;
+  const chapterCards = [{ id: "all", label: "全书", title: "全部章节事实", note: "按叙述章节查看关键事实" }, ...chapters];
+  const grouped = chapters
+    .map((chapter) => ({
+      chapter,
+      events: filteredEvents.filter((event) => event.chapter === chapter.chapter),
+    }))
+    .filter((group) => group.events.length);
+  const currentChapter = chapterCards.find((chapter) => chapter.id === activeChapter) || chapterCards[0];
+
+  const startAddChapter = () => {
+    const nextChapter = chapters.length ? Math.max(...chapters.map((chapter) => chapter.chapter)) + 1 : 1;
+    setDraft({
+      chapter: String(nextChapter),
+      title: "",
+      summary: "",
+      facts_text: "",
+      hooks_text: "",
+    });
+    setEditingChapter(0);
+    setAdding(true);
+  };
+
+  const startEditChapter = (chapter) => {
+    const summary = summaryByChapter.get(chapter.chapter) || {};
+    setDraft({
+      chapter: String(chapter.chapter),
+      title: summary.title || chapter.title || "",
+      summary: summary.summary || (chapter.note && !["章节资料待补充", "由时间线事件生成的章节事实"].includes(chapter.note) ? chapter.note : ""),
+      facts_text: textList(summary.facts || []).join("\n"),
+      hooks_text: textList(summary.hooks || []).join("\n"),
+    });
+    setEditingChapter(chapter.chapter);
+    setAdding(true);
+  };
+
+  const setDraftField = (field, value) => {
+    setDraft((current) => ({ ...current, [field]: value }));
+  };
+
+  const saveDraft = async () => {
+    const chapter = Number(draft.chapter);
+    const ok = await onSaveChapterSummary({
+      chapter,
+      title: draft.title.trim(),
+      summary: draft.summary.trim(),
+      facts: splitLines(draft.facts_text),
+      hooks: splitLines(draft.hooks_text),
+    });
+    if (ok) {
+      setAdding(false);
+      setEditingChapter(0);
+      setActiveChapter(`chapter-${chapter}`);
+      setActiveFilter("全部");
+      setKeyword("");
+    }
+  };
+
+  const deleteDraft = async () => {
+    const chapter = Number(draft.chapter);
+    if (!chapter) {
+      return;
+    }
+    const confirmed = window.confirm(`确定删除第 ${chapter} 章概览吗？这会删除章节摘要和自动生成的摘要信号，不会删除普通时间线事件。`);
+    if (!confirmed) {
+      return;
+    }
+    const ok = await onDeleteChapterSummary(chapter);
+    if (ok) {
+      setAdding(false);
+      setEditingChapter(0);
+      setActiveChapter("all");
+      setActiveEventId("");
+    }
+  };
+
+  const selectChapter = (chapterId) => {
+    setActiveChapter(chapterId);
+    const chapterEvents =
+      chapterId === "all"
+        ? events
+        : events.filter((event) => event.chapter === Number(String(chapterId).replace("chapter-", "")));
+    const next = chapterEvents.find((event) => activeFilter === "全部" || event.type === activeFilter) || chapterEvents[0] || "";
+    setActiveEventId(next?.id || "");
+  };
+
+  return (
+    <main className="chapterOverviewPage">
+      <aside className="chapterOverviewPanel chapterOverviewSidebar">
+        <div className="chapterOverviewPanelHead">
+          <h2>章节册</h2>
+          <span className="chapterOverviewHeadActions">
+            <span className="chapterOverviewBadge">{chapters.length} 章</span>
+            <button className="chapterOverviewAddButton" type="button" onClick={startAddChapter} disabled={saving}>
+              <Plus size={15} />
+              新增
+            </button>
+          </span>
+        </div>
+
+        {adding ? (
+          <section className="chapterOverviewAddCard" aria-label="新增章节概览">
+            <div className="chapterOverviewFormHead">
+              <strong>{editingChapter ? `编辑第 ${editingChapter} 章` : "新增章节概览"}</strong>
+              <span className="chapterOverviewChip">{editingChapter ? "编辑" : "新增"}</span>
+            </div>
+            <label>
+              <span>章节号</span>
+              <input
+                aria-label="章节号"
+                type="number"
+                min="1"
+                step="1"
+                value={draft.chapter}
+                onChange={(event) => setDraftField("chapter", event.target.value)}
+              />
+            </label>
+            <label>
+              <span>章节标题</span>
+              <input
+                aria-label="章节标题"
+                value={draft.title}
+                onChange={(event) => setDraftField("title", event.target.value)}
+                placeholder="如：问心阶异象"
+              />
+            </label>
+            <label>
+              <span>章节摘要</span>
+              <textarea
+                aria-label="章节摘要"
+                value={draft.summary}
+                onChange={(event) => setDraftField("summary", event.target.value)}
+                placeholder="这一章讲述、揭示或补完了什么"
+              />
+            </label>
+            <label>
+              <span>关键事实</span>
+              <textarea
+                aria-label="关键事实"
+                value={draft.facts_text}
+                onChange={(event) => setDraftField("facts_text", event.target.value)}
+                placeholder="每行一条事实"
+              />
+            </label>
+            <label>
+              <span>伏笔</span>
+              <textarea
+                aria-label="伏笔"
+                value={draft.hooks_text}
+                onChange={(event) => setDraftField("hooks_text", event.target.value)}
+                placeholder="每行一条伏笔"
+              />
+            </label>
+            <div className="chapterOverviewAddActions">
+              <button className="chapterOverviewGhostButton" type="button" onClick={() => setAdding(false)} disabled={saving}>
+                取消
+              </button>
+              {editingChapter ? (
+                <button className="dangerButton" type="button" onClick={deleteDraft} disabled={saving}>
+                  删除
+                </button>
+              ) : null}
+              <button className="saveButton" type="button" onClick={saveDraft} disabled={saving || !draft.summary.trim() || !Number(draft.chapter)}>
+                {editingChapter ? "保存修改" : "保存章节"}
+              </button>
+            </div>
+          </section>
+        ) : null}
+
+        <label className="chapterOverviewSearchBox">
+          <span>搜索事件</span>
+          <input
+            type="search"
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+            placeholder="人物、地点、势力、伏笔关键词"
+          />
+        </label>
+
+        <div className="chapterOverviewFilterGrid">
+          {chapterOverviewFilters.map((filter) => (
+            <button
+              className={filter.id === activeFilter ? "chapterOverviewFilter active" : "chapterOverviewFilter"}
+              key={filter.id}
+              type="button"
+              onClick={() => setActiveFilter(filter.id)}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="chapterOverviewChapterList">
+          {chapterCards.map((chapter) => {
+            const list = chapter.id === "all" ? events : events.filter((event) => event.chapter === chapter.chapter);
+            const hookCount = list.filter((event) => event.type === "伏笔").length;
+            return (
+              <div
+                className={chapter.id === activeChapter ? "chapterOverviewChapterCard active" : "chapterOverviewChapterCard"}
+                key={chapter.id}
+              >
+                <button className="chapterOverviewChapterSelect" type="button" onClick={() => selectChapter(chapter.id)}>
+                  <span className="chapterOverviewStats">
+                    <span className="chapterOverviewChip">{chapter.label}</span>
+                    <span className="chapterOverviewChip">{list.length} 事</span>
+                    {hookCount ? <span className="chapterOverviewChip">{hookCount} 伏笔</span> : null}
+                  </span>
+                  <strong>{chapter.title}</strong>
+                  <small>{chapter.note}</small>
+                </button>
+                {chapter.id !== "all" ? (
+                  <button className="chapterOverviewCardEdit" type="button" onClick={() => startEditChapter(chapter)} disabled={saving} aria-label={`编辑${chapter.label}`}>
+                    <Pencil size={14} />
+                    编辑
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
+          <InlinePendingList changes={pendingChanges} saving={saving} onApprove={onApprovePending} onReject={onRejectPending} />
+        </div>
+      </aside>
+
+      <section className="chapterOverviewPanel chapterOverviewTimelinePanel">
+        <div className="chapterOverviewTop">
+          <div>
+            <p className="eyebrow">当前视图</p>
+            <h2>{activeChapter === "all" ? "全书章节事实册" : `${currentChapter.label}：${currentChapter.title}`}</h2>
+            <p>{activeFilter === "全部" ? "按叙述章节显示已经确认的关键事实。点击事件可查看结构化详情。" : `当前只显示「${activeFilter}」章节事实。`}</p>
+          </div>
+          <div className="chapterOverviewModeTabs" aria-label="章节概览模式">
+            <button className="chapterOverviewGhostButton active" type="button">章节事实</button>
+            <button className="chapterOverviewGhostButton" type="button">章节摘要</button>
+            <button className="chapterOverviewGhostButton" type="button">本章伏笔</button>
+          </div>
+        </div>
+
+        <div className="chapterOverviewBody">
+          {!grouped.length ? (
+            <div className="chapterOverviewEmpty">没有符合当前筛选条件的章节事实。</div>
+          ) : (
+            grouped.map((group) => (
+              <section className="chapterOverviewGroup" key={group.chapter.id}>
+                <div className="chapterOverviewMarker">
+                  <strong>{group.chapter.label}</strong>
+                  <span>{group.chapter.title}</span>
+                  <span>{group.events.length} 条事件</span>
+                </div>
+                <div className="chapterOverviewRail">
+                  {group.events.map((event) => (
+                    <button
+                      className={event.id === activeEvent?.id ? "chapterOverviewEventCard active" : "chapterOverviewEventCard"}
+                      key={event.id}
+                      type="button"
+                      onClick={() => setActiveEventId(event.id)}
+                    >
+                      <div className="chapterOverviewEventHead">
+                        <div className="chapterOverviewEventTitle">
+                          <strong>{event.title}</strong>
+                          <small>
+                            第 {event.chapter} 章 · 事件 {event.order} · {event.time}
+                          </small>
+                        </div>
+                        <span className={`chapterOverviewTypePill ${chapterOverviewTypeClass[event.type] || ""}`}>{event.type}</span>
+                      </div>
+                      <p>{event.summary}</p>
+                      <div className="chapterOverviewEventMeta">
+                        <span className="chapterOverviewChip">{event.location}</span>
+                        <span className="chapterOverviewChip">{event.status}</span>
+                        {event.characters.slice(0, 3).map((name) => (
+                          <span className="chapterOverviewChip" key={`${event.id}-${name}`}>
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ))
+          )}
+        </div>
+      </section>
+
+      <aside className="chapterOverviewDetailColumn">
+        <section className="chapterOverviewPanel chapterOverviewDetailCard">
+          <div className="chapterOverviewDetailTitle">
+            <p className="eyebrow">事件详情</p>
+            <h2>{activeEvent?.title || "选择一个事件"}</h2>
+            <p>
+              {activeEvent
+                ? `第 ${activeEvent.chapter} 章，${activeEvent.time}，${activeEvent.location}`
+                : "右侧显示本章中被讲述或揭示的事件、参与者、地点、势力、影响结果和伏笔变化。"}
+            </p>
+          </div>
+          {activeEvent ? (
+            <div className="chapterOverviewKvList">
+              <div className="chapterOverviewKv">
+                <span>事件类型</span>
+                <div className="chapterOverviewTagList">
+                  <span className={`chapterOverviewTypePill ${chapterOverviewTypeClass[activeEvent.type] || ""}`}>{activeEvent.type}</span>
+                  <span className="chapterOverviewChip">{activeEvent.status}</span>
+                  <span className="chapterOverviewChip">{activeEvent.source}</span>
+                </div>
+              </div>
+              <div className="chapterOverviewKv">
+                <span>事件经过</span>
+                <div>{activeEvent.summary}</div>
+              </div>
+              <div className="chapterOverviewKv">
+                <span>涉及人物</span>
+                <div className="chapterOverviewTagList">
+                  {activeEvent.characters.length ? activeEvent.characters.map((name) => <span className="chapterOverviewChip" key={name}>{name}</span>) : <span className="chapterOverviewChip">未记录</span>}
+                </div>
+              </div>
+              <div className="chapterOverviewKv">
+                <span>地点与势力</span>
+                <div className="chapterOverviewTagList">
+                  <span className="chapterOverviewChip">{activeEvent.location}</span>
+                  {activeEvent.factions.map((name) => (
+                    <span className="chapterOverviewChip" key={name}>
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="chapterOverviewKv">
+                <span>影响结果</span>
+                <div>{activeEvent.consequences}</div>
+              </div>
+              <div className="chapterOverviewKv">
+                <span>伏笔变化</span>
+                <div className="chapterOverviewHookList">
+                  {activeEvent.hooks.length ? (
+                    activeEvent.hooks.map((hook, index) => (
+                      <div className="chapterOverviewHookItem" key={`${activeEvent.id}-${hook}`}>
+                        <strong>{hook}</strong>
+                        <span>{index === 0 ? "当前章节重点伏笔，后续章节需要持续追踪。" : "关联伏笔，进入章节事实索引。"}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="chapterOverviewHookItem">
+                      <strong>暂无伏笔记录</strong>
+                      <span>后续可由作者或 LLM 补充。</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </section>
+
+        <section className="chapterOverviewPanel chapterOverviewLegendCard">
+          <div className="chapterOverviewPanelHead">
+            <h3>章节事实类型</h3>
+            <span className="chapterOverviewBadge">{filteredEvents.length} 条</span>
+          </div>
+          <div className="chapterOverviewLegendGrid">
+            <span className="chapterOverviewTypePill main">主线推进</span>
+            <span className="chapterOverviewTypePill character">人物变化</span>
+            <span className="chapterOverviewTypePill faction">势力变化</span>
+            <span className="chapterOverviewTypePill hook">伏笔</span>
+            <span className="chapterOverviewTypePill danger">死亡失踪</span>
+            <span className="chapterOverviewTypePill setting">设定补充</span>
+          </div>
+        </section>
+      </aside>
+    </main>
+  );
+}
+
 function FactionWorkspace({
   factions,
   currentFaction,
@@ -2777,6 +4849,9 @@ function FactionWorkspace({
   onSave,
   onDelete,
   onNew,
+  pendingChanges = [],
+  onApprovePending,
+  onRejectPending,
 }) {
   const draftKey = selectedFactionName === "__new__" ? `new-${draftRevision}` : currentFaction?.name || "empty";
   const showEditor = currentFaction || selectedFactionName === "__new__";
@@ -2808,12 +4883,13 @@ function FactionWorkspace({
           ) : (
             <div className="emptyListState">
               <p className="muted">当前项目还没有势力数据。</p>
-              <button className="ghostButton" onClick={onNew} disabled={saving}>
-                <Plus size={16} />
-                新建势力
-              </button>
             </div>
           )}
+          <InlinePendingList changes={pendingChanges} saving={saving} onApprove={onApprovePending} onReject={onRejectPending} />
+          <button className="ghostButton listFooterButton" onClick={onNew} disabled={saving}>
+            <Plus size={16} />
+            新建势力
+          </button>
         </div>
       </aside>
 
@@ -3164,10 +5240,15 @@ function FactionEditor({ faction, resetKey, saving, onSave, onDelete }) {
 export {
   PowerSystemWorkspace,
   App,
+  BookshelfWorkspace,
   CharacterEditor,
   FactionEditor,
   MapWorkspace,
+  PendingPreviewPanel,
+  TimelineWorkspace,
+  ChapterOverviewWorkspace,
   buildMapAtlas,
+  buildChapterOverview,
   characterDraft,
   draftToMapImagePayload,
   draftToMapNodePayload,
@@ -3176,6 +5257,7 @@ export {
   draftToPatch,
   factionDraft,
   factionStatusTone,
+  isFantasyProject,
   isAliveStatus,
   joinLines,
   mapImportTemplate,

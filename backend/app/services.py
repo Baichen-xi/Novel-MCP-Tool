@@ -31,6 +31,7 @@ JSON_FIELDS = {
     "facts",
     "hooks",
     "involved_characters",
+    "factions",
     "tags",
     "polygon_points",
     "core_members",
@@ -51,6 +52,7 @@ LIST_JSON_FIELDS = {
     "facts",
     "hooks",
     "involved_characters",
+    "factions",
     "tags",
     "polygon_points",
     "core_members",
@@ -78,6 +80,7 @@ LIST_JSON_FIELDS_NO_TEXT = {
     "facts",
     "hooks",
     "involved_characters",
+    "factions",
     "tags",
     "polygon_points",
     "core_members",
@@ -295,6 +298,155 @@ LORE_ENTRY_COLUMNS = {
     "enabled",
 }
 
+MODULE_LABELS = {
+    "characters": "人物信息",
+    "factions": "势力结构",
+    "powerSystem": "境界体系",
+    "maps": "世界图册",
+    "timeline": "故事时间线",
+    "chapters": "章节概览",
+    "world": "世界设定",
+    "projects": "小说项目",
+}
+
+SCHEMA_GUIDES: dict[str, dict[str, Any]] = {
+    "character": {
+        "模块": "人物信息",
+        "用途": "创建或补全单个人物资料。字段可以使用中文名，后端会归一到数据库字段。",
+        "必填": ["姓名"],
+        "推荐字段": ["姓名", "性别", "性格", "当前境界", "身份", "角色身份", "存活状态", "人物关系", "所修功法", "拥有的装备", "阵营", "血脉", "补充资料"],
+        "示例": {
+            "姓名": "林玄",
+            "性别": "男",
+            "性格": "隐忍、谨慎，关键时刻敢赌命",
+            "当前境界": "炼气三层",
+            "身份": "天元宗外门弟子",
+            "角色身份": "主角",
+            "存活状态": "存活",
+            "人物关系": "与苏璃互相试探，暂未完全信任",
+            "所修功法": ["青木诀", "问心剑诀残篇"],
+            "拥有的装备": ["青铜古戒"],
+            "阵营": "天元宗",
+            "血脉": "未觉醒古族血脉",
+            "补充资料": {"秘密": "青铜古戒内藏有残魂"},
+        },
+    },
+    "faction": {
+        "模块": "势力结构",
+        "用途": "创建或补全宗门、国家、公司、避难所等组织资料。",
+        "必填": ["名称"],
+        "推荐字段": ["名称", "别名", "类型", "层级", "状态", "上级势力", "所在地", "势力范围", "领袖", "核心成员", "盟友", "敌对方", "下属势力", "简介", "理念", "资源", "剧情备注", "禁改事实", "标签"],
+        "示例": {
+            "名称": "天元宗",
+            "类型": "宗门",
+            "层级": "区域霸主",
+            "状态": "活跃",
+            "所在地": "东玄道域·天元山脉",
+            "势力范围": "东玄道域北境三十六城",
+            "领袖": "玄微真人",
+            "核心成员": ["苏璃", "戒律长老"],
+            "敌对方": ["黑水盟"],
+            "简介": "以问心阶和剑修传承立宗的北境大宗。",
+        },
+    },
+    "power_realm": {
+        "模块": "境界体系",
+        "用途": "创建或修改一个大境界，可携带小境界列表。",
+        "必填": ["境界", "说明"],
+        "推荐字段": ["境界", "说明", "小境界"],
+        "示例": {
+            "境界": "炼气境",
+            "说明": "吸纳天地灵气入体，完成修行根基。",
+            "小境界": [
+                {"名称": "初期", "说明": "初步感气，引灵入体。"},
+                {"名称": "中期", "说明": "灵气运转稳定，可施展基础术法。"},
+                {"名称": "后期", "说明": "经脉渐通，准备筑基。"},
+            ],
+        },
+    },
+    "map_image": {
+        "模块": "世界图册",
+        "用途": "创建或修改一张地图册卡片，不要求携带图片本体。",
+        "必填": ["地图名"],
+        "推荐字段": ["地图名", "层级", "范围说明", "横向范围", "纵向范围", "距离单位", "标度文字", "地图类型", "说明"],
+        "示例": {
+            "地图名": "东玄道域总览",
+            "层级": "道域",
+            "范围说明": "东玄道域北境到南境的概览图",
+            "横向范围": 800000,
+            "纵向范围": 520000,
+            "距离单位": "里",
+            "标度文字": "1 格 = 4 万里",
+            "地图类型": "区域",
+            "说明": "用于展示主要宗门、城池、秘境之间的方位关系。",
+        },
+    },
+    "map_node": {
+        "模块": "世界图册",
+        "用途": "创建或修改地图点位。点位必须给出 x/y，范围为 0-100 的前端百分比坐标。",
+        "必填": ["名称", "x", "y"],
+        "推荐字段": ["名称", "显示方式", "说明", "所属势力", "颜色", "x", "y"],
+        "示例": {"名称": "黑水城", "显示方式": "点", "说明": "黑水盟控制的边境城池。", "所属势力": "黑水盟", "颜色": "120,146,185", "x": 62, "y": 48},
+    },
+    "map_region": {
+        "模块": "世界图册",
+        "用途": "创建或修改地图区域。区域必须给出至少三个顶点，顶点 x/y 为 0-100 的百分比坐标。",
+        "必填": ["名称", "顶点"],
+        "推荐字段": ["名称", "显示方式", "说明", "所属势力", "颜色", "顶点"],
+        "示例": {
+            "名称": "天元宗势力范围",
+            "显示方式": "区域",
+            "说明": "天元宗直接控制的山门与附属城镇。",
+            "所属势力": "天元宗",
+            "颜色": "111,134,98",
+            "顶点": [{"x": 28, "y": 30}, {"x": 48, "y": 28}, {"x": 54, "y": 45}, {"x": 34, "y": 52}],
+        },
+    },
+    "timeline_event": {
+        "模块": "故事时间线",
+        "用途": "写入小说世界内真实发生顺序的事件，不会和章节概览自动联动。",
+        "必填": ["事件标题", "故事时间", "排序值", "事件说明"],
+        "推荐字段": ["纪元", "故事时间", "时间说明", "排序值", "左右", "事件类型", "事件标题", "事件说明", "叙述章节", "章节", "地点", "涉及人物", "涉及势力", "影响结果", "伏笔", "标签"],
+        "示例": {
+            "纪元": "新星纪元",
+            "故事时间": "新星纪元 1032 年 春",
+            "时间说明": "天元宗收徒日午后",
+            "排序值": 1032.2,
+            "左右": "右",
+            "事件类型": "正序事件",
+            "事件标题": "林玄登上问心阶",
+            "事件说明": "林玄在问心阶停步，神魂异象短暂显现。",
+            "叙述章节": "第 1 章正序讲述",
+            "章节": 1,
+            "地点": "天元宗山门",
+            "涉及人物": ["林玄", "苏璃"],
+            "涉及势力": ["天元宗"],
+            "影响结果": "林玄获得入门资格。",
+            "伏笔": ["问心阶为何回应林玄神魂"],
+        },
+    },
+    "chapter_overview": {
+        "模块": "章节概览",
+        "用途": "保存某章被讲述、揭示或补完的关键事实，不会自动写入故事时间线。",
+        "必填": ["章节", "摘要"],
+        "推荐字段": ["章节", "标题", "摘要", "事实", "伏笔"],
+        "示例": {
+            "章节": 1,
+            "标题": "陨落的天才",
+            "摘要": "林玄在退婚后进入天元宗山门，问心阶异动。",
+            "事实": ["林玄被退婚", "青铜古戒第一次发热"],
+            "伏笔": ["问心阶异象来源未明"],
+        },
+    },
+    "world_summary": {
+        "模块": "世界设定",
+        "用途": "更新世界设定总览，只写一段话。",
+        "必填": ["世界设定"],
+        "推荐字段": ["世界设定"],
+        "示例": {"世界设定": "这是一个宗门、王朝与秘境并存的修行世界，灵气潮汐决定各地资源兴衰。"},
+    },
+}
+
 
 def dumps(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False)
@@ -307,6 +459,235 @@ def loads(value: str | None, fallback: Any = None) -> Any:
         return json.loads(value)
     except json.JSONDecodeError:
         return fallback
+
+
+def get_schema(kind: str | None = None) -> dict[str, Any]:
+    if not kind:
+        return {"schemas": SCHEMA_GUIDES}
+    normalized_kind = str(kind).strip()
+    schema = SCHEMA_GUIDES.get(normalized_kind)
+    if not schema:
+        return {"kind": normalized_kind, "valid_kind": False, "schemas": SCHEMA_GUIDES}
+    return {"kind": normalized_kind, "valid_kind": True, "schema": schema}
+
+
+def validation_ok(kind: str, normalized: dict[str, Any], warnings: list[str] | None = None) -> dict[str, Any]:
+    return {
+        "valid": True,
+        "kind": kind,
+        "errors": [],
+        "warnings": warnings or [],
+        "normalized": normalized,
+    }
+
+
+def validation_error(kind: str, errors: list[str], normalized: dict[str, Any] | None = None, warnings: list[str] | None = None) -> dict[str, Any]:
+    return {
+        "valid": False,
+        "kind": kind,
+        "errors": errors,
+        "warnings": warnings or [],
+        "normalized": normalized or {},
+        "schema": get_schema(kind).get("schema", {}),
+    }
+
+
+def first_present(data: dict[str, Any], *keys: str, default: Any = None) -> Any:
+    for key in keys:
+        if data.get(key) not in (None, ""):
+            return data.get(key)
+    return default
+
+
+def normalize_map_image_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    prepared = {
+        "title": str(first_present(payload, "title", "name", "地图名", "名称", default="世界地图")).strip() or "世界地图",
+        "layer": str(first_present(payload, "layer", "层级", default="世界")).strip(),
+        "parent_name": str(first_present(payload, "parent_name", "上级地图", "所属地图", default="")).strip(),
+        "scope": str(first_present(payload, "scope", "范围说明", "范围", default="")).strip(),
+        "scale_label": str(first_present(payload, "scale_label", "标度文字", "显示标度", default="")).strip(),
+        "real_width": parse_float(first_present(payload, "real_width", "横向范围", "宽度", default=0)),
+        "real_height": parse_float(first_present(payload, "real_height", "纵向范围", "高度", default=0)),
+        "distance_unit": str(first_present(payload, "distance_unit", "距离单位", "单位", default="里")).strip() or "里",
+        "scale_kind": str(first_present(payload, "scale_kind", "地图类型", "类型", default="")).strip(),
+        "image_data": str(first_present(payload, "image_data", "图片数据", default="")).strip(),
+        "mime_type": str(first_present(payload, "mime_type", "图片类型", default="image/png")).strip() or "image/png",
+        "notes": str(first_present(payload, "notes", "说明", "备注", default="")).strip(),
+    }
+    if first_present(payload, "map_id_or_name", "id", "map_id", "地图ID") not in (None, ""):
+        prepared["map_id_or_name"] = first_present(payload, "map_id_or_name", "id", "map_id", "地图ID")
+    return prepared
+
+
+def normalize_power_realm_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    tier = normalize_power_tier(
+        {
+            "name": first_present(payload, "name", "title", "境界", "名称", "大境界", default=""),
+            "description": first_present(payload, "description", "summary", "说明", "描述", default=""),
+            "stages": first_present(payload, "stages", "小境界", "小境界列表", "阶段列表", default=[]),
+        }
+    )
+    return tier
+
+
+def normalize_chapter_overview_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "chapter": parse_chapter(first_present(payload, "chapter", "章节", "章", default=1)),
+        "title": str(first_present(payload, "title", "标题", "章节标题", default="")).strip(),
+        "summary": str(first_present(payload, "summary", "摘要", "概览", "内容", default="")).strip(),
+        "facts": first_present(payload, "facts", "事实", "新增事实", default=[]),
+        "hooks": first_present(payload, "hooks", "伏笔", "钩子", default=[]),
+    }
+
+
+def normalize_map_node_payload(payload: dict[str, Any], shape: str | None = None) -> dict[str, Any]:
+    prepared = dict(payload or {})
+    aliases = {
+        "name": ("名称", "地点名", "节点名", "区域名"),
+        "shape": ("显示方式", "形状", "范围形状"),
+        "description": ("说明", "描述"),
+        "faction": ("所属势力", "势力", "归属"),
+        "color": ("颜色", "区域颜色", "RGB", "rgb"),
+        "x": ("横坐标", "X"),
+        "y": ("纵坐标", "Y"),
+        "polygon_points": ("顶点", "多边形点", "范围点", "点集"),
+        "type": ("类型", "节点类型"),
+    }
+    for target, keys in aliases.items():
+        if prepared.get(target) in (None, ""):
+            for key in keys:
+                if prepared.get(key) not in (None, ""):
+                    prepared[target] = prepared[key]
+                    break
+    if shape:
+        prepared["shape"] = shape
+    if str(prepared.get("shape") or "").strip() in {"点", "point"}:
+        prepared["shape"] = "point"
+    if str(prepared.get("shape") or "").strip() in {"区域", "范围", "多边形", "polygon", "region"}:
+        prepared["shape"] = "polygon"
+    if not prepared.get("type"):
+        prepared["type"] = "区域" if prepared.get("shape") == "polygon" else "地点"
+    return normalize_map_node_geometry(prepared)
+
+
+def normalize_timeline_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    prepared = dict(payload or {})
+    aliases = {
+        "era": ("纪元", "纪年", "时代", "时间段"),
+        "year_label": ("故事时间", "发生时间", "时间", "年份"),
+        "time_note": ("时间说明", "时间备注", "具体时间"),
+        "sort_order": ("排序值", "排序", "时间顺序", "故事顺序"),
+        "side": ("左右", "显示侧", "侧边"),
+        "event_type": ("事件类型", "类型"),
+        "title": ("事件标题", "标题", "名称"),
+        "summary": ("事件说明", "说明", "摘要", "内容"),
+        "narrative": ("叙述章节", "来源章节", "首次揭示"),
+        "chapter": ("章节", "章"),
+        "location": ("地点", "位置"),
+        "involved_characters": ("涉及人物", "相关角色", "参与角色", "人物"),
+        "factions": ("涉及势力", "相关势力", "势力"),
+        "consequences": ("影响结果", "后果", "影响"),
+        "hooks": ("伏笔", "伏笔变化"),
+        "tags": ("标签",),
+    }
+    for target, keys in aliases.items():
+        if prepared.get(target) in (None, ""):
+            for key in keys:
+                if prepared.get(key) not in (None, ""):
+                    prepared[target] = prepared[key]
+                    break
+    return normalize_timeline_event_payload(prepared)
+
+
+def validate_payload(kind: str, payload: Any) -> dict[str, Any]:
+    normalized_kind = str(kind or "").strip()
+    if normalized_kind not in SCHEMA_GUIDES:
+        return validation_error(normalized_kind or "unknown", [f"未知资料类型：{kind}"])
+    if normalized_kind == "world_summary" and isinstance(payload, str):
+        payload = {"世界设定": payload}
+    if not isinstance(payload, dict):
+        return validation_error(normalized_kind, ["payload 必须是 JSON 对象，不能是纯文本或数组。"])
+
+    errors: list[str] = []
+    warnings: list[str] = []
+    normalized: dict[str, Any] = {}
+
+    if normalized_kind == "character":
+        if "补充资料" in payload and "state_variables" not in payload:
+            payload = {**payload, "state_variables": {"custom": payload.get("补充资料")}}
+        normalized = normalize_character_payload(payload)
+        if not str(normalized.get("name") or "").strip():
+            errors.append("缺少必填字段：姓名。")
+    elif normalized_kind == "faction":
+        normalized = normalize_faction_payload(payload)
+        if not str(normalized.get("name") or "").strip():
+            errors.append("缺少必填字段：名称。")
+    elif normalized_kind == "power_realm":
+        normalized = normalize_power_realm_payload(payload)
+        if not str(normalized.get("name") or "").strip():
+            errors.append("缺少必填字段：境界。")
+        if not str(normalized.get("description") or "").strip():
+            errors.append("缺少必填字段：说明。")
+    elif normalized_kind == "map_image":
+        normalized = normalize_map_image_payload(payload)
+        if not normalized.get("title"):
+            errors.append("缺少必填字段：地图名。")
+    elif normalized_kind == "map_node":
+        normalized = normalize_map_node_payload(payload, "point")
+        if not str(normalized.get("name") or "").strip():
+            errors.append("缺少必填字段：名称。")
+        for axis in ("x", "y"):
+            try:
+                value = float(normalized.get(axis))
+            except (TypeError, ValueError):
+                errors.append(f"字段 {axis} 必须是 0-100 的数字。")
+                continue
+            if value < 0 or value > 100:
+                errors.append(f"字段 {axis} 超出范围，必须在 0-100 之间。")
+    elif normalized_kind == "map_region":
+        normalized = normalize_map_node_payload(payload, "polygon")
+        points = normalized.get("polygon_points", [])
+        if not str(normalized.get("name") or "").strip():
+            errors.append("缺少必填字段：名称。")
+        if not isinstance(points, list) or len(points) < 3:
+            errors.append("区域必须提供至少 3 个顶点，字段名可用 顶点 或 polygon_points。")
+        for index, point in enumerate(points if isinstance(points, list) else [], start=1):
+            for axis in ("x", "y"):
+                value = point.get(axis)
+                if not isinstance(value, (int, float)) or value < 0 or value > 100:
+                    errors.append(f"第 {index} 个顶点的 {axis} 必须是 0-100 的数字。")
+    elif normalized_kind == "timeline_event":
+        normalized = normalize_timeline_payload(payload)
+        if not str(normalized.get("title") or "").strip() or normalized.get("title") == "未命名事件":
+            errors.append("缺少必填字段：事件标题。")
+        if not str(normalized.get("summary") or "").strip():
+            errors.append("缺少必填字段：事件说明。")
+        if not str(normalized.get("year_label") or "").strip() or normalized.get("year_label") == "时间未定":
+            errors.append("缺少必填字段：故事时间。")
+        if "sort_order" not in payload and "排序值" not in payload and "排序" not in payload and "时间顺序" not in payload:
+            errors.append("缺少必填字段：排序值。")
+    elif normalized_kind == "chapter_overview":
+        normalized = normalize_chapter_overview_payload(payload)
+        if not normalized.get("chapter"):
+            errors.append("缺少必填字段：章节。")
+        if not normalized.get("summary"):
+            errors.append("缺少必填字段：摘要。")
+    elif normalized_kind == "world_summary":
+        summary = str(first_present(payload, "summary", "世界设定", "设定", "内容", default="")).strip()
+        normalized = {"summary": summary}
+        if not summary:
+            errors.append("缺少必填字段：世界设定。")
+
+    if errors:
+        return validation_error(normalized_kind, errors, normalized, warnings)
+    return validation_ok(normalized_kind, normalized, warnings)
+
+
+def require_valid_payload(kind: str, payload: Any) -> dict[str, Any]:
+    result = validate_payload(kind, payload)
+    if not result["valid"]:
+        return result
+    return result
 
 
 def parse_world_coordinate(value: Any) -> tuple[float, float, float | None] | None:
@@ -577,7 +958,7 @@ def normalize_power_stage(value: Any) -> dict[str, Any]:
     if not isinstance(stage, dict):
         return {}
     aliases = {
-        "name": ("name", "title", "阶段", "小境界", "阶位", "等级", "层次"),
+        "name": ("name", "title", "名称", "阶段", "小境界", "阶位", "等级", "层次"),
         "description": ("description", "desc", "说明", "描述", "介绍", "效果", "特点"),
     }
     for target, sources in aliases.items():
@@ -909,6 +1290,7 @@ def normalize_character_payload(character: dict[str, Any]) -> dict[str, Any]:
         "locked_facts": ("禁改事实", "锁定事实"),
         "state_variables": ("状态变量", "变量", "MVU", "mvu", "variables"),
     }
+    alias_source_keys = {source for sources in alias_map.values() for source in sources}
     for target, sources in alias_map.items():
         if prepared.get(target) in (None, ""):
             for source_key in sources:
@@ -929,7 +1311,13 @@ def normalize_character_payload(character: dict[str, Any]) -> dict[str, Any]:
     custom = state_variables.get("custom")
     if not isinstance(custom, dict):
         custom = {}
-    extras = {key: value for key, value in prepared.items() if key not in CHARACTER_COLUMNS and key != "name"}
+    extras = {
+        key: value
+        for key, value in prepared.items()
+        if key not in CHARACTER_COLUMNS and key != "name" and key not in alias_source_keys and key != "补充资料"
+    }
+    if isinstance(character.get("补充资料"), dict):
+        extras = deep_merge_dict(character["补充资料"], extras)
     if extras:
         state_variables["custom"] = deep_merge_dict(custom, extras)
     prepared["state_variables"] = state_variables
@@ -943,6 +1331,71 @@ def parse_chapter(value: Any) -> int:
         return int(value)
     match = re.search(r"\d+", str(value or ""))
     return int(match.group(0)) if match else 1
+
+
+def parse_optional_int(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        return int(value)
+    match = re.search(r"\d+", str(value or ""))
+    return int(match.group(0)) if match else None
+
+
+def parse_float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def normalize_timeline_event_payload(event: dict[str, Any]) -> dict[str, Any]:
+    prepared = dict(event or {})
+    title = str(prepared.get("title") or "").strip()
+    summary = str(prepared.get("summary") or "").strip()
+    legacy_event = str(prepared.get("event") or "").strip()
+    date_label = str(prepared.get("date_label") or "").strip()
+    year_label = str(prepared.get("year_label") or "").strip() or date_label
+    time_note = str(prepared.get("time_note") or "").strip()
+    event_type = str(prepared.get("event_type") or "").strip() or ("正序事件" if prepared.get("chapter") else "未知时间")
+    side = str(prepared.get("side") or "").strip().lower()
+    side = "left" if side in {"left", "左", "左侧"} else "right" if side in {"right", "右", "右侧"} else ""
+    chapter = parse_optional_int(prepared.get("chapter"))
+    narrative = str(prepared.get("narrative") or "").strip()
+    if not title:
+        title = legacy_event[:28] if legacy_event else "未命名事件"
+    if not summary:
+        summary = legacy_event or title
+    if not legacy_event:
+        legacy_event = summary
+    if not year_label:
+        year_label = f"第 {chapter} 章" if chapter else "时间未定"
+    if not narrative and chapter:
+        narrative = f"第 {chapter} 章"
+    if not side:
+        side = "left" if parse_float(prepared.get("sort_order"), chapter or 0) % 2 else "right"
+    return {
+        "chapter": chapter,
+        "era": str(prepared.get("era") or "未定纪年").strip() or "未定纪年",
+        "year_label": year_label,
+        "time_note": time_note,
+        "sort_order": parse_float(prepared.get("sort_order"), float(chapter or 0)),
+        "side": side,
+        "event_type": event_type,
+        "title": title,
+        "summary": summary,
+        "narrative": narrative,
+        "date_label": date_label or year_label,
+        "event": legacy_event,
+        "involved_characters": normalize_text_list(prepared.get("involved_characters", [])),
+        "factions": normalize_text_list(prepared.get("factions", [])),
+        "location": str(prepared.get("location") or "").strip(),
+        "consequences": str(prepared.get("consequences") or "").strip(),
+        "hooks": normalize_text_list(prepared.get("hooks", [])),
+        "tags": normalize_text_list(prepared.get("tags", [])),
+    }
 
 
 def init_project(payload: ProjectInit) -> dict[str, Any]:
@@ -1172,22 +1625,36 @@ def upsert_faction(conn: Any, faction: dict[str, Any], project_id: int | None = 
 
 def add_timeline_event(conn: Any, event: dict[str, Any], project_id: int | None = None) -> None:
     project_id = project_id or current_project_id(conn)
+    prepared = normalize_timeline_event_payload(event)
     conn.execute(
         """
         INSERT INTO timeline_events (
-            project_id, chapter, date_label, event, involved_characters_json, location, consequences, tags_json
+            project_id, chapter, era, year_label, time_note, sort_order, side, event_type,
+            title, summary, narrative, date_label, event, involved_characters_json,
+            factions_json, location, consequences, hooks_json, tags_json
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             project_id,
-            event.get("chapter"),
-            event.get("date_label", ""),
-            event.get("event", ""),
-            dumps(event.get("involved_characters", [])),
-            event.get("location", ""),
-            event.get("consequences", ""),
-            dumps(event.get("tags", [])),
+            prepared["chapter"],
+            prepared["era"],
+            prepared["year_label"],
+            prepared["time_note"],
+            prepared["sort_order"],
+            prepared["side"],
+            prepared["event_type"],
+            prepared["title"],
+            prepared["summary"],
+            prepared["narrative"],
+            prepared["date_label"],
+            prepared["event"],
+            dumps(prepared["involved_characters"]),
+            dumps(prepared["factions"]),
+            prepared["location"],
+            prepared["consequences"],
+            dumps(prepared["hooks"]),
+            dumps(prepared["tags"]),
         ),
     )
 
@@ -1223,6 +1690,29 @@ def create_project(title: str = "未命名作品", genre: str = "", premise: str
             (title, genre, premise),
         )
         project = conn.execute("SELECT * FROM projects WHERE id = ?", (cursor.lastrowid,)).fetchone()
+    return normalize_row(project)
+
+
+def update_project(project_id: int, patch: dict[str, Any]) -> dict[str, Any]:
+    init_db()
+    allowed_fields = ("title", "genre", "premise")
+    fields: list[str] = []
+    values: list[Any] = []
+    for field in allowed_fields:
+        if field in patch and patch[field] is not None:
+            value = str(patch[field]).strip() if field == "title" else str(patch[field] or "")
+            if field == "title" and not value:
+                raise ValueError("Project title cannot be empty")
+            fields.append(f"{field} = ?")
+            values.append(value)
+    with get_connection() as conn:
+        row = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
+        if not row:
+            raise ValueError("Project not found")
+        if fields:
+            values.append(project_id)
+            conn.execute(f"UPDATE projects SET {', '.join(fields)}, updated_at = CURRENT_TIMESTAMP WHERE id = ?", values)
+        project = conn.execute("SELECT * FROM projects WHERE id = ?", (project_id,)).fetchone()
     return normalize_row(project)
 
 
@@ -1451,6 +1941,27 @@ def delete_faction(name: str) -> dict[str, Any]:
 
 def propose_faction_update(name: str, patch: dict[str, Any], reason: str = "", source: str = "llm") -> dict[str, Any]:
     init_db()
+    if source == "llm":
+        payload = {"name": name, **(patch or {})}
+        validation = validate_payload("faction", payload)
+        if not validation["valid"]:
+            return {"mode": "invalid", "validation": validation}
+        normalized = validation["normalized"]
+        target_name = str(normalized.get("name") or name).strip()
+        return {
+            "mode": "pending",
+            "change": create_pending_change(
+                "faction",
+                target_name,
+                normalized,
+                reason,
+                source,
+                "factions",
+                target_name,
+                normalized,
+                validation,
+            ),
+        }
     protected = any(field in PROTECTED_FACTION_FIELDS for field in patch)
     if not get_faction(name):
         protected = True
@@ -1825,25 +2336,105 @@ def get_timeline(chapter_range: str | None = None) -> list[dict[str, Any]]:
     init_db()
     with get_connection() as conn:
         project_id = current_project_id(conn)
-        query = "SELECT * FROM timeline_events WHERE project_id = ? ORDER BY COALESCE(chapter, 999999), date_label, id"
+        query = """
+            SELECT * FROM timeline_events
+            WHERE project_id = ?
+            ORDER BY
+                CASE WHEN sort_order = 0 AND COALESCE(chapter, 0) > 0 THEN chapter ELSE sort_order END,
+                COALESCE(chapter, 999999),
+                year_label,
+                date_label,
+                id
+        """
         params: tuple[Any, ...] = (project_id,)
         if chapter_range and "-" in chapter_range:
             start, end = [int(part.strip()) for part in chapter_range.split("-", 1)]
-            query = "SELECT * FROM timeline_events WHERE project_id = ? AND chapter BETWEEN ? AND ? ORDER BY chapter, id"
+            query = """
+                SELECT * FROM timeline_events
+                WHERE project_id = ? AND chapter BETWEEN ? AND ?
+                ORDER BY
+                    CASE WHEN sort_order = 0 AND COALESCE(chapter, 0) > 0 THEN chapter ELSE sort_order END,
+                    chapter,
+                    id
+            """
             params = (project_id, start, end)
         rows = conn.execute(query, params).fetchall()
     return [normalize_row(row) for row in rows]
 
 
-def create_pending_change(target_type: str, target_name: str, patch: dict[str, Any], reason: str, source: str) -> dict[str, Any]:
+def module_for_target_type(target_type: str) -> str:
+    if target_type.startswith("character"):
+        return "characters"
+    if target_type.startswith("faction"):
+        return "factions"
+    if target_type.startswith("power") or target_type == "power_system":
+        return "powerSystem"
+    if target_type.startswith("map"):
+        return "maps"
+    if target_type.startswith("timeline"):
+        return "timeline"
+    if target_type.startswith("chapter"):
+        return "chapters"
+    if target_type.startswith("world"):
+        return "world"
+    if target_type.startswith("project"):
+        return "projects"
+    return ""
+
+
+def pending_change_payload(
+    target_type: str,
+    target_name: str,
+    patch: dict[str, Any],
+    module_type: str = "",
+    target_entity: str = "",
+    preview: dict[str, Any] | None = None,
+    validation: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    module = module_type or module_for_target_type(target_type)
+    return {
+        "module_type": module,
+        "module_label": MODULE_LABELS.get(module, module),
+        "target_entity": target_entity or target_name,
+        "preview": preview if preview is not None else patch,
+        "validation": validation or {"valid": True, "errors": [], "warnings": []},
+    }
+
+
+def create_pending_change(
+    target_type: str,
+    target_name: str,
+    patch: dict[str, Any],
+    reason: str,
+    source: str,
+    module_type: str = "",
+    target_entity: str = "",
+    preview: dict[str, Any] | None = None,
+    validation: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    meta = pending_change_payload(target_type, target_name, patch, module_type, target_entity, preview, validation)
     with get_connection() as conn:
         project_id = current_project_id(conn)
         cursor = conn.execute(
             """
-            INSERT INTO pending_changes (project_id, target_type, target_name, patch_json, reason, source)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO pending_changes (
+                project_id, target_type, target_name, module_type, target_entity,
+                patch_json, preview_json, validation_json, reason, source
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (project_id, target_type, target_name, dumps(patch), reason, source),
+            (
+                project_id,
+                target_type,
+                target_name,
+                meta["module_type"],
+                meta["target_entity"],
+                dumps(patch),
+                dumps(meta["preview"]),
+                dumps(meta["validation"]),
+                reason,
+                source,
+            ),
         )
         row = conn.execute("SELECT * FROM pending_changes WHERE id = ?", (cursor.lastrowid,)).fetchone()
     return normalize_row(row)
@@ -1904,6 +2495,27 @@ def apply_character_patch(conn: Any, name: str, patch: dict[str, Any], reason: s
 
 def propose_character_update(name: str, patch: dict[str, Any], reason: str = "", source: str = "llm") -> dict[str, Any]:
     init_db()
+    if source == "llm":
+        payload = {"name": name, **(patch or {})}
+        validation = validate_payload("character", payload)
+        if not validation["valid"]:
+            return {"mode": "invalid", "validation": validation}
+        normalized = validation["normalized"]
+        target_name = str(normalized.get("name") or name).strip()
+        return {
+            "mode": "pending",
+            "change": create_pending_change(
+                "character",
+                target_name,
+                normalized,
+                reason,
+                source,
+                "characters",
+                target_name,
+                normalized,
+                validation,
+            ),
+        }
     protected = any(field in PROTECTED_CHARACTER_FIELDS for field in patch)
     existing = get_character(name)
     if not existing:
@@ -1926,6 +2538,8 @@ def update_character_direct(name: str, patch: dict[str, Any], reason: str = "作
 
 def propose_world_update(patch: dict[str, Any], reason: str = "", source: str = "llm") -> dict[str, Any]:
     init_db()
+    if source == "llm":
+        return {"mode": "pending", "change": create_pending_change("world", "", patch, reason, source)}
     protected = any(field in PROTECTED_WORLD_FIELDS for field in patch)
     if protected:
         return {"mode": "pending", "change": create_pending_change("world", "", patch, reason, source)}
@@ -1950,6 +2564,139 @@ def propose_world_profile_update(patch: dict[str, Any], reason: str = "", source
 
 def propose_power_system_update(patch: dict[str, Any], reason: str = "", source: str = "llm") -> dict[str, Any]:
     return propose_world_update({"power_system": patch}, reason, source)
+
+
+def propose_validated_change(
+    kind: str,
+    target_type: str,
+    target_name: str,
+    payload: dict[str, Any],
+    reason: str = "",
+    source: str = "llm",
+    module_type: str = "",
+    target_entity: str = "",
+) -> dict[str, Any]:
+    validation = validate_payload(kind, payload)
+    if not validation["valid"]:
+        return {"mode": "invalid", "validation": validation}
+    normalized = validation["normalized"]
+    target = target_entity or target_name
+    if not target:
+        target = str(normalized.get("name") or normalized.get("title") or normalized.get("chapter") or "").strip()
+    change = create_pending_change(
+        target_type,
+        target,
+        normalized,
+        reason,
+        source,
+        module_type or module_for_target_type(target_type),
+        target,
+        normalized,
+        validation,
+    )
+    return {"mode": "pending", "change": change, "validation": validation}
+
+
+def propose_character_create(payload: dict[str, Any], reason: str = "", source: str = "llm") -> dict[str, Any]:
+    validation = validate_payload("character", payload)
+    if not validation["valid"]:
+        return {"mode": "invalid", "validation": validation}
+    name = str(validation["normalized"].get("name") or "").strip()
+    return propose_validated_change("character", "character", name, payload, reason or "LLM 提交人物资料", source, "characters", name)
+
+
+def propose_faction_create(payload: dict[str, Any], reason: str = "", source: str = "llm") -> dict[str, Any]:
+    validation = validate_payload("faction", payload)
+    if not validation["valid"]:
+        return {"mode": "invalid", "validation": validation}
+    name = str(validation["normalized"].get("name") or "").strip()
+    return propose_validated_change("faction", "faction", name, payload, reason or "LLM 提交势力资料", source, "factions", name)
+
+
+def propose_world_summary_update(summary: str | dict[str, Any], reason: str = "", source: str = "llm") -> dict[str, Any]:
+    payload = {"世界设定": summary} if isinstance(summary, str) else summary
+    return propose_validated_change("world_summary", "world_summary", "世界设定", payload, reason or "LLM 提交世界设定", source, "world", "世界设定")
+
+
+def propose_power_realm_create(payload: dict[str, Any], reason: str = "", source: str = "llm") -> dict[str, Any]:
+    validation = validate_payload("power_realm", payload)
+    if not validation["valid"]:
+        return {"mode": "invalid", "validation": validation}
+    name = str(validation["normalized"].get("name") or "").strip()
+    return propose_validated_change("power_realm", "power_realm", name, payload, reason or "LLM 提交境界资料", source, "powerSystem", name)
+
+
+def propose_power_realm_update(name: str, patch: dict[str, Any], reason: str = "", source: str = "llm") -> dict[str, Any]:
+    payload = {"name": name, **(patch or {})}
+    return propose_validated_change("power_realm", "power_realm", name, payload, reason or "LLM 修改境界资料", source, "powerSystem", name)
+
+
+def propose_power_realm_delete(name: str, reason: str = "", source: str = "llm") -> dict[str, Any]:
+    patch = {"name": name}
+    change = create_pending_change("power_realm_delete", name, patch, reason or "LLM 请求删除境界", source, "powerSystem", name, patch)
+    return {"mode": "pending", "change": change}
+
+
+def propose_map_create(payload: dict[str, Any], reason: str = "", source: str = "llm") -> dict[str, Any]:
+    validation = validate_payload("map_image", payload)
+    if not validation["valid"]:
+        return {"mode": "invalid", "validation": validation}
+    title = str(validation["normalized"].get("title") or "").strip()
+    return propose_validated_change("map_image", "map_image", title, payload, reason or "LLM 提交地图资料", source, "maps", title)
+
+
+def propose_map_update(map_id_or_name: str | int, patch: dict[str, Any], reason: str = "", source: str = "llm") -> dict[str, Any]:
+    payload = {"map_id_or_name": map_id_or_name, **(patch or {})}
+    if not payload.get("title") and not payload.get("地图名") and not payload.get("名称"):
+        payload["title"] = str(map_id_or_name)
+    return propose_validated_change("map_image", "map_image", str(map_id_or_name), payload, reason or "LLM 修改地图资料", source, "maps", str(map_id_or_name))
+
+
+def propose_map_delete(map_id_or_name: str | int, reason: str = "", source: str = "llm") -> dict[str, Any]:
+    patch = {"map_id_or_name": map_id_or_name}
+    change = create_pending_change("map_image_delete", str(map_id_or_name), patch, reason or "LLM 请求删除地图", source, "maps", str(map_id_or_name), patch)
+    return {"mode": "pending", "change": change}
+
+
+def propose_map_node_update(map_id_or_name: str | int, node_name: str, patch: dict[str, Any], reason: str = "", source: str = "llm") -> dict[str, Any]:
+    payload = {"map_id_or_name": map_id_or_name, "name": node_name, **(patch or {})}
+    return propose_validated_change("map_node", "map_node", node_name, payload, reason or "LLM 提交地图节点", source, "maps", node_name)
+
+
+def propose_map_region_update(map_id_or_name: str | int, region_name: str, patch: dict[str, Any], reason: str = "", source: str = "llm") -> dict[str, Any]:
+    payload = {"map_id_or_name": map_id_or_name, "name": region_name, "shape": "polygon", **(patch or {})}
+    return propose_validated_change("map_region", "map_region", region_name, payload, reason or "LLM 提交地图区域", source, "maps", region_name)
+
+
+def propose_map_node_delete(node_name: str, reason: str = "", source: str = "llm") -> dict[str, Any]:
+    patch = {"name": node_name}
+    change = create_pending_change("map_node_delete", node_name, patch, reason or "LLM 请求删除地图节点/区域", source, "maps", node_name, patch)
+    return {"mode": "pending", "change": change}
+
+
+def propose_timeline_event_create(payload: dict[str, Any], reason: str = "", source: str = "llm") -> dict[str, Any]:
+    validation = validate_payload("timeline_event", payload)
+    if not validation["valid"]:
+        return {"mode": "invalid", "validation": validation}
+    title = str(validation["normalized"].get("title") or "").strip()
+    return propose_validated_change("timeline_event", "timeline_event", title, payload, reason or "LLM 提交故事时间线事件", source, "timeline", title)
+
+
+def propose_timeline_event_delete(event_id: int, reason: str = "", source: str = "llm") -> dict[str, Any]:
+    patch = {"id": event_id}
+    change = create_pending_change("timeline_event_delete", str(event_id), patch, reason or "LLM 请求删除时间线事件", source, "timeline", str(event_id), patch)
+    return {"mode": "pending", "change": change}
+
+
+def propose_chapter_overview_update(chapter: int, payload: dict[str, Any], reason: str = "", source: str = "llm") -> dict[str, Any]:
+    merged = {"chapter": chapter, **(payload or {})}
+    return propose_validated_change("chapter_overview", "chapter_overview", f"第 {chapter} 章", merged, reason or "LLM 提交章节概览", source, "chapters", f"第 {chapter} 章")
+
+
+def propose_chapter_overview_delete(chapter: int, reason: str = "", source: str = "llm") -> dict[str, Any]:
+    patch = {"chapter": chapter, "summary": "删除章节概览"}
+    change = create_pending_change("chapter_overview_delete", f"第 {chapter} 章", patch, reason or "LLM 请求删除章节概览", source, "chapters", f"第 {chapter} 章", patch)
+    return {"mode": "pending", "change": change}
 
 
 def apply_world_patch(conn: Any, patch: dict[str, Any], reason: str, source: str) -> None:
@@ -2077,7 +2824,21 @@ def list_pending_changes() -> list[dict[str, Any]]:
             "SELECT * FROM pending_changes WHERE project_id = ? AND status = 'pending' ORDER BY id DESC",
             (current_project_id(conn),),
         ).fetchall()
-    return [normalize_row(row) for row in rows]
+    changes = []
+    for row in rows:
+        change = normalize_row(row)
+        meta = pending_change_payload(
+            change.get("target_type", ""),
+            change.get("target_name", ""),
+            change.get("patch", {}),
+            change.get("module_type", ""),
+            change.get("target_entity", ""),
+            change.get("preview") if isinstance(change.get("preview"), dict) and change.get("preview") else None,
+            change.get("validation") if isinstance(change.get("validation"), dict) and change.get("validation") else None,
+        )
+        change.update(meta)
+        changes.append(change)
+    return changes
 
 
 def list_change_history(limit: int = 50) -> list[dict[str, Any]]:
@@ -2149,6 +2910,202 @@ def restore_project_blob(conn: Any, field: str, snapshot: dict[str, Any]) -> Non
     )
 
 
+def find_map_image_id(conn: Any, map_id_or_name: Any) -> int | None:
+    if map_id_or_name in (None, ""):
+        return None
+    project_id = current_project_id(conn)
+    try:
+        image_id = int(map_id_or_name)
+    except (TypeError, ValueError):
+        image_id = None
+    if image_id is not None:
+        row = conn.execute("SELECT id FROM map_images WHERE project_id = ? AND id = ?", (project_id, image_id)).fetchone()
+        return int(row["id"]) if row else None
+    title = str(map_id_or_name).strip()
+    row = conn.execute("SELECT id FROM map_images WHERE project_id = ? AND title = ? ORDER BY id DESC LIMIT 1", (project_id, title)).fetchone()
+    return int(row["id"]) if row else None
+
+
+def upsert_pending_map_image(conn: Any, patch: dict[str, Any], reason: str, source: str) -> dict[str, Any]:
+    project_id = current_project_id(conn)
+    prepared = normalize_map_image_payload(patch)
+    image_id = find_map_image_id(conn, patch.get("id", patch.get("map_id", patch.get("地图ID"))))
+    if image_id is None and patch.get("title"):
+        image_id = find_map_image_id(conn, patch.get("title"))
+    if image_id is None and patch.get("地图名"):
+        image_id = find_map_image_id(conn, patch.get("地图名"))
+    before = {}
+    if image_id is not None:
+        row = conn.execute("SELECT * FROM map_images WHERE project_id = ? AND id = ?", (project_id, image_id)).fetchone()
+        if row:
+            before = normalize_row(row)
+            assignments = []
+            values: list[Any] = []
+            for key in MAP_IMAGE_COLUMNS:
+                if key in prepared and (prepared[key] not in ("", None) or key in {"image_data", "notes", "scope"}):
+                    assignments.append(f"{key} = ?")
+                    values.append(float(prepared[key]) if key in {"real_width", "real_height"} else str(prepared[key] or ""))
+            if assignments:
+                values.append(image_id)
+                conn.execute(f"UPDATE map_images SET {', '.join(assignments)}, updated_at = CURRENT_TIMESTAMP WHERE id = ?", values)
+    else:
+        cursor = conn.execute(
+            """
+            INSERT INTO map_images (
+                project_id, title, layer, parent_name, scope, scale_label, real_width,
+                real_height, distance_unit, scale_kind, image_data, mime_type, notes
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                project_id,
+                prepared["title"],
+                prepared["layer"],
+                prepared["parent_name"],
+                prepared["scope"],
+                prepared["scale_label"],
+                prepared["real_width"],
+                prepared["real_height"],
+                prepared["distance_unit"],
+                prepared["scale_kind"],
+                prepared["image_data"],
+                prepared["mime_type"],
+                prepared["notes"],
+            ),
+        )
+        image_id = int(cursor.lastrowid)
+    after_row = conn.execute("SELECT * FROM map_images WHERE project_id = ? AND id = ?", (project_id, image_id)).fetchone()
+    after = normalize_row(after_row) if after_row else {}
+    log_history(conn, "map_image", prepared["title"], prepared, reason, source, before, after)
+    return after
+
+
+def upsert_pending_map_node(conn: Any, target_name: str, patch: dict[str, Any], reason: str, source: str, shape: str | None = None) -> dict[str, Any]:
+    project_id = current_project_id(conn)
+    prepared = normalize_map_node_payload({**patch, "name": patch.get("name") or target_name}, shape)
+    prepared["map_image_id"] = prepared.get("map_image_id") or find_map_image_id(conn, patch.get("map_id_or_name", patch.get("地图", patch.get("地图名"))))
+    if not prepared.get("name"):
+        raise ValueError("Map node name is required")
+    before_row = conn.execute("SELECT * FROM map_nodes WHERE project_id = ? AND name = ?", (project_id, prepared["name"])).fetchone()
+    before = normalize_row(before_row) if before_row else {}
+    stored = map_node_storage_payload(prepared)
+    conn.execute(
+        """
+        INSERT INTO map_nodes (project_id, map_image_id, layer, plane, name, type, shape, parent_name, description, faction, color, x, y, polygon_points_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(project_id, name) DO UPDATE SET
+            map_image_id = excluded.map_image_id,
+            layer = excluded.layer,
+            plane = excluded.plane,
+            type = excluded.type,
+            shape = excluded.shape,
+            parent_name = excluded.parent_name,
+            description = excluded.description,
+            faction = excluded.faction,
+            color = excluded.color,
+            x = excluded.x,
+            y = excluded.y,
+            polygon_points_json = excluded.polygon_points_json,
+            updated_at = CURRENT_TIMESTAMP
+        """,
+        (
+            project_id,
+            stored.get("map_image_id"),
+            stored.get("layer", ""),
+            stored.get("plane", ""),
+            stored.get("name", ""),
+            stored.get("type", "place"),
+            stored.get("shape", "point"),
+            stored.get("parent_name", ""),
+            stored.get("description", ""),
+            stored.get("faction", ""),
+            stored.get("color", ""),
+            float(stored.get("x", 0)),
+            float(stored.get("y", 0)),
+            stored.get("polygon_points_json", "[]"),
+        ),
+    )
+    after_row = conn.execute("SELECT * FROM map_nodes WHERE project_id = ? AND name = ?", (project_id, prepared["name"])).fetchone()
+    after = normalize_row(after_row) if after_row else {}
+    log_history(conn, "map_node", prepared["name"], prepared, reason, source, before, after)
+    return after
+
+
+def apply_power_realm_patch(conn: Any, name: str, patch: dict[str, Any], reason: str, source: str, delete: bool = False) -> dict[str, Any]:
+    project_id = current_project_id(conn)
+    project = get_project_from_conn(conn)
+    before = normalize_power_system(project.get("power_system", {}))
+    tiers = list(before.get("tiers", []))
+    target_name = str(name or first_present(patch, "name", "境界", "名称", default="")).strip()
+    if delete:
+        tiers = [tier for tier in tiers if tier.get("name") != target_name]
+    else:
+        incoming = normalize_power_realm_payload({**patch, "name": target_name or patch.get("name") or patch.get("境界")})
+        if not incoming.get("name"):
+            raise ValueError("Power realm name is required")
+        replaced = False
+        tiers = [
+            (deep_merge_dict(tier, incoming) if tier.get("name") == incoming["name"] else tier)
+            for tier in tiers
+        ]
+        replaced = any(tier.get("name") == incoming["name"] for tier in before.get("tiers", []))
+        if not replaced:
+            tiers.append(incoming)
+    after = normalize_power_system({**before, "tiers": tiers})
+    conn.execute("UPDATE projects SET power_system_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (dumps(after), project_id))
+    log_history(conn, "power_system", target_name, patch, reason, source, before, after)
+    return after
+
+
+def apply_chapter_overview_patch(conn: Any, patch: dict[str, Any], reason: str, source: str, delete: bool = False) -> dict[str, Any]:
+    project_id = current_project_id(conn)
+    normalized = normalize_chapter_overview_payload(patch)
+    chapter = int(normalized["chapter"])
+    before_row = conn.execute("SELECT * FROM chapter_summaries WHERE project_id = ? AND chapter = ?", (project_id, chapter)).fetchone()
+    before = normalize_row(before_row) if before_row else {}
+    if delete:
+        conn.execute("DELETE FROM chapter_summaries WHERE project_id = ? AND chapter = ?", (project_id, chapter))
+        after: dict[str, Any] = {}
+    else:
+        conn.execute(
+            """
+            INSERT INTO chapter_summaries (project_id, chapter, title, summary, facts_json, hooks_json)
+            VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(project_id, chapter) DO UPDATE SET
+                    title = excluded.title,
+                    summary = excluded.summary,
+                    facts_json = excluded.facts_json,
+                    hooks_json = excluded.hooks_json
+            """,
+            (project_id, chapter, normalized["title"], normalized["summary"], dumps(normalized["facts"]), dumps(normalized["hooks"])),
+        )
+        after_row = conn.execute("SELECT * FROM chapter_summaries WHERE project_id = ? AND chapter = ?", (project_id, chapter)).fetchone()
+        after = normalize_row(after_row) if after_row else {}
+    log_history(conn, "chapter_summary", f"第 {chapter} 章", normalized, reason, source, before, after)
+    return after
+
+
+def validate_pending_patch(target_type: str, patch: dict[str, Any]) -> dict[str, Any]:
+    kind_map = {
+        "character": "character",
+        "faction": "faction",
+        "power_realm": "power_realm",
+        "map_image": "map_image",
+        "map_node": "map_node",
+        "map_region": "map_region",
+        "timeline_event": "timeline_event",
+        "chapter_overview": "chapter_overview",
+        "world_summary": "world_summary",
+    }
+    kind = kind_map.get(target_type)
+    if not kind:
+        return {"valid": True, "normalized": patch, "errors": [], "warnings": []}
+    result = validate_payload(kind, patch)
+    if not result["valid"]:
+        raise ValueError("待审核补丁格式错误：" + "；".join(result["errors"]))
+    return result
+
+
 def rollback_change(history_id: int) -> dict[str, Any]:
     init_db()
     with get_connection() as conn:
@@ -2196,6 +3153,9 @@ def approve_change(change_id: int, edited_patch: dict[str, Any] | None = None) -
             raise ValueError("Pending change not found")
         change = normalize_row(row)
         patch = edited_patch if edited_patch is not None else change["patch"]
+        validation = validate_pending_patch(change["target_type"], patch)
+        if validation.get("normalized"):
+            patch = validation["normalized"]
         if change["target_type"] == "project_delete":
             delete_project_id = int(patch.get("project_id") or 0)
         elif change["target_type"] == "character_delete":
@@ -2232,11 +3192,59 @@ def approve_change(change_id: int, edited_patch: dict[str, Any] | None = None) -
                 apply_character_patch(conn, change["target_name"], patch, change["reason"], "approved")
         elif change["target_type"] == "faction":
             apply_faction_patch(conn, change["target_name"], patch, change["reason"], "approved")
+        elif change["target_type"] == "world_summary":
+            apply_world_patch(conn, {"world_profile": patch}, change["reason"], "approved")
+        elif change["target_type"] == "power_realm":
+            apply_power_realm_patch(conn, change["target_name"], patch, change["reason"], "approved")
+        elif change["target_type"] == "power_realm_delete":
+            apply_power_realm_patch(conn, change["target_name"], patch, change["reason"], "approved", delete=True)
+        elif change["target_type"] == "map_image":
+            upsert_pending_map_image(conn, patch, change["reason"], "approved")
+        elif change["target_type"] == "map_image_delete":
+            image_id = find_map_image_id(conn, patch.get("map_id_or_name", patch.get("id", change["target_name"])))
+            if image_id is None:
+                raise ValueError("Map image not found")
+            before_row = conn.execute("SELECT * FROM map_images WHERE project_id = ? AND id = ?", (current_project_id(conn), image_id)).fetchone()
+            before = normalize_row(before_row) if before_row else {}
+            conn.execute("DELETE FROM map_nodes WHERE project_id = ? AND map_image_id = ?", (current_project_id(conn), image_id))
+            conn.execute("DELETE FROM map_images WHERE project_id = ? AND id = ?", (current_project_id(conn), image_id))
+            log_history(conn, "map_image_delete", change["target_name"], patch, change["reason"], "approved", before, {})
+        elif change["target_type"] == "map_node":
+            upsert_pending_map_node(conn, change["target_name"], patch, change["reason"], "approved", "point")
+        elif change["target_type"] == "map_region":
+            upsert_pending_map_node(conn, change["target_name"], patch, change["reason"], "approved", "polygon")
+        elif change["target_type"] == "map_node_delete":
+            before_row = conn.execute(
+                "SELECT * FROM map_nodes WHERE project_id = ? AND name = ?",
+                (current_project_id(conn), change["target_name"]),
+            ).fetchone()
+            if not before_row:
+                raise ValueError("Map node not found")
+            before = normalize_row(before_row)
+            conn.execute("DELETE FROM map_nodes WHERE project_id = ? AND name = ?", (current_project_id(conn), change["target_name"]))
+            log_history(conn, "map_node_delete", change["target_name"], patch, change["reason"], "approved", before, {})
+        elif change["target_type"] == "timeline_event":
+            add_timeline_event(conn, patch, current_project_id(conn))
+            log_history(conn, "timeline_event", patch.get("title", change["target_name"]), patch, change["reason"], "approved")
+        elif change["target_type"] == "timeline_event_delete":
+            event_id = parse_optional_int(patch.get("id"))
+            if event_id is None:
+                raise ValueError("Timeline event id is required")
+            before_row = conn.execute("SELECT * FROM timeline_events WHERE project_id = ? AND id = ?", (current_project_id(conn), event_id)).fetchone()
+            if not before_row:
+                raise ValueError("Timeline event not found")
+            before = normalize_row(before_row)
+            conn.execute("DELETE FROM timeline_events WHERE project_id = ? AND id = ?", (current_project_id(conn), event_id))
+            log_history(conn, "timeline_event_delete", before.get("title", str(event_id)), patch, change["reason"], "approved", before, {})
+        elif change["target_type"] == "chapter_overview":
+            apply_chapter_overview_patch(conn, patch, change["reason"], "approved")
+        elif change["target_type"] == "chapter_overview_delete":
+            apply_chapter_overview_patch(conn, patch, change["reason"], "approved", delete=True)
         elif change["target_type"] == "world":
             apply_world_patch(conn, patch, change["reason"], "approved")
         conn.execute(
-            "UPDATE pending_changes SET status = 'approved', patch_json = ?, resolved_at = CURRENT_TIMESTAMP WHERE id = ?",
-            (dumps(patch), change_id),
+            "UPDATE pending_changes SET status = 'approved', patch_json = ?, validation_json = ?, resolved_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (dumps(patch), dumps(validation), change_id),
         )
     if delete_project_id:
         return {"status": "approved", "dashboard": delete_project(delete_project_id)}
@@ -2253,10 +3261,27 @@ def reject_change(change_id: int) -> dict[str, Any]:
     return {"status": "rejected", "pending_changes": list_pending_changes()}
 
 
+def delete_chapter_summary_timeline_signals(conn: Any, project_id: int, chapter: int) -> int:
+    rows = conn.execute(
+        "SELECT id, tags_json FROM timeline_events WHERE project_id = ? AND chapter = ?",
+        (project_id, chapter),
+    ).fetchall()
+    ids = [row["id"] for row in rows if "chapter_summary" in loads(row["tags_json"], [])]
+    if ids:
+        conn.executemany("DELETE FROM timeline_events WHERE project_id = ? AND id = ?", [(project_id, event_id) for event_id in ids])
+    return len(ids)
+
+
 def add_chapter_summary(payload: ChapterSummaryIn) -> dict[str, Any]:
     init_db()
     with get_connection() as conn:
         project_id = current_project_id(conn)
+        before_row = conn.execute(
+            "SELECT * FROM chapter_summaries WHERE project_id = ? AND chapter = ?",
+            (project_id, payload.chapter),
+        ).fetchone()
+        before = normalize_row(before_row) if before_row else None
+        delete_chapter_summary_timeline_signals(conn, project_id, payload.chapter)
         conn.execute(
             """
             INSERT INTO chapter_summaries (project_id, chapter, title, summary, facts_json, hooks_json)
@@ -2269,13 +3294,12 @@ def add_chapter_summary(payload: ChapterSummaryIn) -> dict[str, Any]:
             """,
             (project_id, payload.chapter, payload.title, payload.summary, dumps(payload.facts), dumps(payload.hooks)),
         )
-        conn.execute(
-            """
-            INSERT INTO timeline_events (project_id, chapter, event, tags_json)
-            VALUES (?, ?, ?, ?)
-            """,
-            (project_id, payload.chapter, f"章节摘要：{payload.summary[:120]}", dumps(["chapter_summary"])),
-        )
+        after_row = conn.execute(
+            "SELECT * FROM chapter_summaries WHERE project_id = ? AND chapter = ?",
+            (project_id, payload.chapter),
+        ).fetchone()
+        after = normalize_row(after_row) if after_row else None
+        log_history(conn, "chapter_summary", f"第 {payload.chapter} 章", payload.model_dump(), "保存章节概览", "user", before, after)
     return {"summary": get_chapter_summary(payload.chapter), "timeline": get_timeline()}
 
 
@@ -2306,6 +3330,28 @@ def list_chapter_summaries() -> list[dict[str, Any]]:
             (current_project_id(conn),),
         ).fetchall()
     return [normalize_row(row) for row in rows]
+
+
+def delete_chapter_summary(chapter: int) -> dict[str, Any]:
+    init_db()
+    with get_connection() as conn:
+        project_id = current_project_id(conn)
+        before_row = conn.execute("SELECT * FROM chapter_summaries WHERE project_id = ? AND chapter = ?", (project_id, chapter)).fetchone()
+        before = normalize_row(before_row) if before_row else None
+        removed_signals = delete_chapter_summary_timeline_signals(conn, project_id, chapter)
+        cursor = conn.execute("DELETE FROM chapter_summaries WHERE project_id = ? AND chapter = ?", (project_id, chapter))
+        deleted = cursor.rowcount
+        log_history(
+            conn,
+            "chapter_summary",
+            f"第 {chapter} 章",
+            {"chapter": chapter, "removed_timeline_signals": removed_signals},
+            "删除章节概览",
+            "user",
+            before,
+            None,
+        )
+    return {"deleted": deleted, "removed_timeline_signals": removed_signals, "dashboard": get_dashboard()}
 
 
 def import_full_chapter(payload: FullChapterIn) -> dict[str, Any]:
@@ -2402,7 +3448,21 @@ def export_project() -> dict[str, Any]:
             "lore_entries": [normalize_row(row) for row in conn.execute("SELECT * FROM lore_entries WHERE project_id = ? ORDER BY priority DESC, title", (project_id,)).fetchall()],
             "map_nodes": [normalize_row(row) for row in conn.execute("SELECT * FROM map_nodes WHERE project_id = ? ORDER BY type, name", (project_id,)).fetchall()],
             "map_images": [normalize_row(row) for row in conn.execute("SELECT * FROM map_images WHERE project_id = ? ORDER BY updated_at DESC, id DESC", (project_id,)).fetchall()],
-            "timeline": [normalize_row(row) for row in conn.execute("SELECT * FROM timeline_events WHERE project_id = ? ORDER BY COALESCE(chapter, 999999), id", (project_id,)).fetchall()],
+            "timeline": [
+                normalize_row(row)
+                for row in conn.execute(
+                    """
+                    SELECT * FROM timeline_events
+                    WHERE project_id = ?
+                    ORDER BY
+                        CASE WHEN sort_order = 0 AND COALESCE(chapter, 0) > 0 THEN chapter ELSE sort_order END,
+                        COALESCE(chapter, 999999),
+                        year_label,
+                        id
+                    """,
+                    (project_id,),
+                ).fetchall()
+            ],
             "chapter_summaries": [normalize_row(row) for row in conn.execute("SELECT * FROM chapter_summaries WHERE project_id = ? ORDER BY chapter", (project_id,)).fetchall()],
             "full_chapters": [normalize_row(row) for row in conn.execute("SELECT * FROM full_chapters WHERE project_id = ? ORDER BY chapter", (project_id,)).fetchall()],
         }

@@ -1,19 +1,26 @@
 import React from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   PowerSystemWorkspace,
   CharacterEditor,
+  ChapterOverviewWorkspace,
+  App,
+  BookshelfWorkspace,
   FactionEditor,
   MapWorkspace,
+  PendingPreviewPanel,
+  TimelineWorkspace,
   buildMapAtlas,
+  buildChapterOverview,
   characterDraft,
   draftToFactionPatch,
   draftToMapImagePayload,
   draftToMapNodePayload,
   draftToPowerSystemPatch,
   factionDraft,
+  isFantasyProject,
   isAliveStatus,
   joinLines,
   mapImportTemplate,
@@ -23,6 +30,177 @@ import {
   powerSystemDraft,
   splitLines,
 } from "./main.jsx";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("BookshelfWorkspace", () => {
+  it("renders project cards and creates a project from the inline form", () => {
+    const onOpen = vi.fn();
+    const onCreate = vi.fn().mockResolvedValue(true);
+    const onUpdate = vi.fn().mockResolvedValue(true);
+    const onDelete = vi.fn().mockResolvedValue(true);
+    const onSetDraft = vi.fn((updater) => {
+      draft = typeof updater === "function" ? updater(draft) : updater;
+      rerenderView();
+    });
+    const onSetAdding = vi.fn();
+    let draft = { title: "", genre: "玄幻", premise: "" };
+    let view;
+    const rerenderView = () => {
+      view.rerender(
+        <BookshelfWorkspace
+          projects={[
+            { id: 1, title: "万道归墟", genre: "玄幻", premise: "九天十地。", updated_at: "2026-06-04" },
+            { id: 2, title: "雾城旧案", genre: "悬疑", premise: "旧城迷案。", updated_at: "2026-06-03" },
+          ]}
+          activeProject={{ id: 1 }}
+          adding
+          draft={draft}
+          saving={false}
+          onSetAdding={onSetAdding}
+          onSetDraft={onSetDraft}
+          onCreate={onCreate}
+          onUpdate={onUpdate}
+          onDelete={onDelete}
+          onOpen={onOpen}
+        />
+      );
+    };
+    let adding = true;
+
+    view = render(
+      <BookshelfWorkspace
+        projects={[
+          { id: 1, title: "万道归墟", genre: "玄幻", premise: "九天十地。", updated_at: "2026-06-04" },
+          { id: 2, title: "雾城旧案", genre: "悬疑", premise: "旧城迷案。", updated_at: "2026-06-03" },
+        ]}
+        activeProject={{ id: 1 }}
+        adding={adding}
+        draft={draft}
+        saving={false}
+        onSetAdding={onSetAdding}
+        onSetDraft={onSetDraft}
+        onCreate={onCreate}
+        onUpdate={onUpdate}
+        onDelete={onDelete}
+        onOpen={onOpen}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /万道归墟/ }));
+    expect(onOpen).toHaveBeenCalledWith(1);
+    expect(screen.getByText("含境界体系")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("书名"), { target: { value: "长夜星火" } });
+    fireEvent.change(screen.getByLabelText("题材"), { target: { value: "科幻" } });
+    fireEvent.change(screen.getByLabelText("简介"), { target: { value: "星际边境档案。" } });
+    fireEvent.click(screen.getByRole("button", { name: "创建小说" }));
+
+    expect(onCreate).toHaveBeenCalledWith({ title: "长夜星火", genre: "科幻", premise: "星际边境档案。" });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "编辑" })[0]);
+    fireEvent.change(screen.getAllByLabelText("书名")[1], { target: { value: "万道新名" } });
+    fireEvent.change(screen.getAllByLabelText("简介")[1], { target: { value: "重写后的简介。" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存" }));
+    expect(onUpdate).toHaveBeenCalledWith(1, { title: "万道新名", genre: "玄幻", premise: "重写后的简介。" });
+
+    fireEvent.click(screen.getAllByRole("button", { name: "删除" })[0]);
+    expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 1, title: "万道归墟" }));
+  });
+
+  it("detects fantasy projects by genre", () => {
+    expect(isFantasyProject({ genre: "玄幻·爽文" })).toBe(true);
+    expect(isFantasyProject({ genre: "仙侠" })).toBe(true);
+    expect(isFantasyProject({ genre: "都市" })).toBe(false);
+  });
+});
+
+describe("App project shelf", () => {
+  it("starts on the bookshelf and hides realm tab for non-fantasy projects after switching", async () => {
+    const dashboard = {
+      project: { id: 2, title: "雾城旧案", genre: "悬疑", premise: "旧城迷案。", is_active: 1, updated_at: "2026-06-03" },
+      projects: [
+        { id: 1, title: "万道归墟", genre: "玄幻", premise: "九天十地。", updated_at: "2026-06-04" },
+        { id: 2, title: "雾城旧案", genre: "悬疑", premise: "旧城迷案。", is_active: 1, updated_at: "2026-06-03" },
+      ],
+      characters: [],
+      world: {},
+      timeline: [],
+      chapter_summaries: [],
+      pending_changes: [],
+    };
+    const fetchMock = vi.fn(async (url) => {
+      const text = String(url);
+      if (text.includes("/api/dashboard")) {
+        return new Response(JSON.stringify(dashboard), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (text.includes("/api/factions")) {
+        return new Response(JSON.stringify([]), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (text.includes("/api/projects/2/switch")) {
+        return new Response(JSON.stringify({ dashboard }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      return new Response(JSON.stringify({}), { status: 200, headers: { "Content-Type": "application/json" } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "小说书架" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /雾城旧案/ }));
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "雾城旧案" })).toBeInTheDocument());
+    expect(screen.queryByText("旧城迷案。")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /境界体系/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /势力结构/ }));
+    expect(screen.getAllByRole("button", { name: "新建势力" })).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/api/projects/2/switch"), expect.objectContaining({ method: "POST" }));
+  });
+});
+
+describe("PendingPreviewPanel", () => {
+  it("shows rendered preview first and keeps JSON collapsed until editing", () => {
+    render(
+      <PendingPreviewPanel
+        title="人物待审核"
+        changes={[
+          {
+            id: 101,
+            module_type: "characters",
+            target_type: "character",
+            target_name: "沈照夜",
+            target_entity: "沈照夜",
+            reason: "MCP 自测写入",
+            patch: {
+              姓名: "沈照夜",
+              性别: "男",
+              角色身份: "主角",
+              当前境界: "星火境",
+              身份: "边城守夜人",
+              性格: "沉稳克制",
+            },
+            validation: { ok: true, errors: [] },
+          },
+        ]}
+        saving={false}
+        onApprove={vi.fn()}
+        onReject={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("界面预览")).toBeInTheDocument();
+    expect(screen.getAllByText("沈照夜").length).toBeGreaterThan(0);
+    expect(screen.queryByText("JSON 原文 / 可编辑")).not.toBeInTheDocument();
+    expect(screen.queryByDisplayValue(/沈照夜/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑 JSON" }));
+
+    expect(screen.getByText("JSON 原文 / 可编辑")).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/沈照夜/)).toBeInTheDocument();
+  });
+});
 
 describe("character helpers", () => {
   it("normalizes character drafts for the chinese role page", () => {
@@ -207,6 +385,279 @@ describe("power system helpers", () => {
         },
       ],
     });
+  });
+});
+
+describe("TimelineWorkspace", () => {
+  it("renders chronology events and toggles the detail card on repeated clicks", async () => {
+    window.matchMedia = vi.fn().mockImplementation(() => ({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
+
+    render(
+      <TimelineWorkspace
+        timeline={[
+          {
+            id: 1,
+            era: "新星纪元",
+            year_label: "新星纪元 1032 年 春",
+            time_note: "天元宗收徒日，午后",
+            sort_order: 1032.2,
+            side: "right",
+            event_type: "正序事件",
+            title: "林玄登上问心阶",
+            summary: "林玄在问心阶第七百二十阶停步。",
+            narrative: "第 1 章正序讲述",
+            location: "天元宗山门",
+            involved_characters: ["林玄", "苏璃"],
+            factions: ["天元宗"],
+            consequences: "林玄获得外门入门资格。",
+            hooks: ["问心阶为何回应林玄神魂"],
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getAllByText("新星纪元").length).toBeGreaterThan(0);
+    const eventCard = screen.getAllByRole("button", { name: /林玄登上问心阶/ }).find((button) => button.classList.contains("eventCard"));
+    expect(eventCard).toBeInTheDocument();
+    expect(screen.queryByText("事件详情")).not.toBeInTheDocument();
+
+    fireEvent.click(eventCard);
+    expect(screen.getByText("事件详情")).toBeInTheDocument();
+    expect(document.querySelector(".detailCard .hookItem")?.textContent).toContain("问心阶为何回应林玄神魂");
+
+    fireEvent.click(eventCard);
+    await waitFor(() => expect(screen.queryByText("事件详情")).not.toBeInTheDocument());
+  });
+
+  it("keeps era navigator groups collapsed by default", () => {
+    render(
+      <TimelineWorkspace
+        timeline={[
+          {
+            id: 1,
+            era: "前星纪",
+            year_label: "前星纪末年",
+            title: "龙门沉入虚空海",
+            summary: "上古龙门沉入虚空海。",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getAllByRole("button", { name: /前星纪/ })[0].closest(".eraNavGroup")).toHaveClass("collapsed");
+  });
+
+  it("keeps left-side event details on the left side", () => {
+    render(
+      <TimelineWorkspace
+        timeline={[
+          {
+            id: 1,
+            era: "新星纪元",
+            year_label: "新星纪元 1032 年 春",
+            side: "left",
+            event_type: "正序事件",
+            title: "左侧事件",
+            summary: "左侧事件摘要。",
+          },
+        ]}
+      />
+    );
+
+    const eventCard = screen.getAllByRole("button", { name: /左侧事件/ }).find((button) => button.classList.contains("eventCard"));
+    fireEvent.click(eventCard);
+
+    const detail = document.querySelector(".detailCard");
+    expect(detail).toBeInTheDocument();
+    expect(detail.closest(".eventWrap")).toHaveClass("left");
+    expect(detail).not.toHaveClass("alignInside");
+  });
+
+  it("hides chapter overview auto summary signals from the story timeline", () => {
+    render(
+      <TimelineWorkspace
+        timeline={[
+          {
+            id: 1,
+            chapter: 1,
+            era: "章节概览",
+            year_label: "第 1 章",
+            title: "陨落的天才",
+            summary: "章节摘要：讲述消炎被退婚",
+            tags: ["chapter_summary"],
+          },
+          {
+            id: 2,
+            chapter: 1,
+            era: "新星纪元",
+            year_label: "新星纪元 1032 年 春",
+            title: "退婚宴爆发",
+            summary: "萧炎在退婚宴上立下三年之约。",
+            event_type: "正序事件",
+          },
+        ]}
+      />
+    );
+
+    expect(screen.queryByText("陨落的天才")).not.toBeInTheDocument();
+    expect(screen.getByText("退婚宴爆发")).toBeInTheDocument();
+  });
+});
+
+describe("ChapterOverviewWorkspace", () => {
+  it("builds chapter overview from summaries and timeline without duplicate summary signals", () => {
+    const overview = buildChapterOverview(
+      [
+        {
+          chapter: 1,
+          title: "问心阶异象",
+          summary: "林玄拜入天元宗。",
+          facts: [{ title: "炼气九层规则确定", type: "设定补充", summary: "第三、六、九层各有瓶颈。" }],
+          hooks: ["问心阶为何回应林玄神魂"],
+        },
+      ],
+      [
+        {
+          id: 7,
+          chapter: 1,
+          title: "林玄登上问心阶",
+          summary: "神魂异象短暂显现。",
+          event_type: "正序事件",
+          tags: ["chapter_summary"],
+        },
+        {
+          id: 8,
+          chapter: 1,
+          title: "苏璃暗中试探林玄",
+          summary: "苏璃确认他并非普通凡人神魂。",
+          event_type: "人物变化",
+          involved_characters: ["苏璃", "林玄"],
+        },
+      ]
+    );
+
+    expect(overview.chapters).toHaveLength(1);
+    expect(overview.events.map((event) => event.title)).toContain("问心阶异象");
+    expect(overview.events.map((event) => event.title)).toContain("炼气九层规则确定");
+    expect(overview.events.map((event) => event.title)).toContain("问心阶为何回应林玄神魂");
+    expect(overview.events.map((event) => event.title)).toContain("苏璃暗中试探林玄");
+    expect(overview.events.map((event) => event.title)).not.toContain("林玄登上问心阶");
+  });
+
+  it("renders the chapter fact book and updates detail after event selection", () => {
+    render(
+      <ChapterOverviewWorkspace
+        chapterSummaries={[
+          {
+            chapter: 1,
+            title: "问心阶异象",
+            summary: "林玄拜入天元宗。",
+            facts: ["炼气九层规则确定"],
+            hooks: ["问心阶为何回应林玄神魂"],
+          },
+        ]}
+        timeline={[
+          {
+            id: 2,
+            chapter: 2,
+            title: "黑水城旧案被提起",
+            summary: "案卷被抽去三页。",
+            event_type: "伏笔",
+            hooks: ["被抽走的三页案卷"],
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText("章节册")).toBeInTheDocument();
+    expect(screen.getByText("全书章节事实册")).toBeInTheDocument();
+    expect(screen.getByText("黑水城旧案被提起")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /黑水城旧案被提起/ }));
+    expect(document.querySelector(".chapterOverviewDetailCard")?.textContent).toContain("案卷被抽去三页。");
+    expect(screen.getByText("被抽走的三页案卷")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "伏笔" }));
+    expect(screen.getByText("当前只显示「伏笔」章节事实。")).toBeInTheDocument();
+  });
+
+  it("submits a manually added chapter summary", async () => {
+    const onSaveChapterSummary = vi.fn().mockResolvedValue(true);
+    render(
+      <ChapterOverviewWorkspace
+        chapterSummaries={[]}
+        timeline={[]}
+        saving={false}
+        onSaveChapterSummary={onSaveChapterSummary}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /新增/ }));
+    fireEvent.change(screen.getByLabelText("章节号"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("章节标题"), { target: { value: "龙渊秘境开启" } });
+    fireEvent.change(screen.getByLabelText("章节摘要"), { target: { value: "林玄进入龙渊秘境。" } });
+    fireEvent.change(screen.getByLabelText("关键事实"), { target: { value: "秘境入口由青岚盟看守\n林玄血脉发热" } });
+    fireEvent.change(screen.getByLabelText("伏笔"), { target: { value: "青色鳞片来源" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存章节" }));
+
+    await waitFor(() =>
+      expect(onSaveChapterSummary).toHaveBeenCalledWith({
+        chapter: 3,
+        title: "龙渊秘境开启",
+        summary: "林玄进入龙渊秘境。",
+        facts: ["秘境入口由青岚盟看守", "林玄血脉发热"],
+        hooks: ["青色鳞片来源"],
+      })
+    );
+  });
+
+  it("edits and deletes a chapter card from the inline form", async () => {
+    const onSaveChapterSummary = vi.fn().mockResolvedValue(true);
+    const onDeleteChapterSummary = vi.fn().mockResolvedValue(true);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(
+      <ChapterOverviewWorkspace
+        chapterSummaries={[
+          {
+            chapter: 1,
+            title: "旧章名",
+            summary: "旧摘要。",
+            facts: ["旧事实"],
+            hooks: ["旧伏笔"],
+          },
+        ]}
+        timeline={[]}
+        saving={false}
+        onSaveChapterSummary={onSaveChapterSummary}
+        onDeleteChapterSummary={onDeleteChapterSummary}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑第 1 章" }));
+    expect(screen.getByText("编辑第 1 章")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("章节标题"), { target: { value: "新章名" } });
+    fireEvent.change(screen.getByLabelText("章节摘要"), { target: { value: "新摘要。" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+
+    await waitFor(() =>
+      expect(onSaveChapterSummary).toHaveBeenCalledWith({
+        chapter: 1,
+        title: "新章名",
+        summary: "新摘要。",
+        facts: ["旧事实"],
+        hooks: ["旧伏笔"],
+      })
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑第 1 章" }));
+    fireEvent.click(screen.getByRole("button", { name: "删除" }));
+    await waitFor(() => expect(onDeleteChapterSummary).toHaveBeenCalledWith(1));
+    confirmSpy.mockRestore();
   });
 });
 
@@ -841,7 +1292,7 @@ describe("MapWorkspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "隐藏区域" }));
     expect(container.querySelector(".mapArea")).toBeNull();
-    expect(screen.getByText("青岚洲")).toBeInTheDocument();
+    expect(screen.getAllByText("青岚洲").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: "显示区域" })).toBeInTheDocument();
     expect(onSaveNode).not.toHaveBeenCalled();
     expect(onDeleteNode).not.toHaveBeenCalled();
@@ -849,6 +1300,62 @@ describe("MapWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "显示区域" }));
     expect(container.querySelector(".mapArea")).not.toBeNull();
     expect(screen.getByRole("button", { name: "隐藏区域" })).toBeInTheDocument();
+  });
+
+  it("restores a hidden area after another map item has been selected", () => {
+    const world = {
+      map_images: [{ id: 12, title: "四域总览", layer: "世界", scale_kind: "总览" }],
+      map_nodes: [
+        {
+          id: 31,
+          map_image_id: 12,
+          name: "青岚洲",
+          type: "区域",
+          shape: "polygon",
+          color: "120,146,185",
+          x: 22,
+          y: 32,
+          polygon_points: [
+            { x: 8, y: 22 },
+            { x: 32, y: 12 },
+            { x: 36, y: 40 },
+          ],
+        },
+        {
+          id: 32,
+          map_image_id: 12,
+          name: "黑水城",
+          type: "城市",
+          shape: "point",
+          x: 55,
+          y: 45,
+        },
+      ],
+    };
+
+    const { container } = render(
+      <MapWorkspace
+        world={world}
+        saving={false}
+        onSaveNode={vi.fn()}
+        onDeleteNode={vi.fn()}
+        onDeleteMap={vi.fn()}
+        onSaveMap={vi.fn()}
+      />
+    );
+
+    fireEvent.click(container.querySelector(".mapArea"));
+    fireEvent.click(screen.getByRole("button", { name: "隐藏区域" }));
+    expect(container.querySelector(".mapArea")).toBeNull();
+
+    fireEvent.click(container.querySelector(".mapNode"));
+    expect(screen.getByText("选中节点")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "显示区域" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "显示隐藏区域 青岚洲" }));
+    expect(container.querySelector(".mapArea")).not.toBeNull();
+    expect(container.querySelector(".mapArea")).toHaveClass("active");
+    expect(screen.getByText("选中区域")).toBeInTheDocument();
   });
 
   it("highlights selected areas with their own color and clears highlight on map blank clicks", () => {

@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>小说资料页演示</title>
+  <style>
+    :root {
+      --paper: #fbf7ef;
+      --paper-2: #f4eadb;
+      --paper-3: #efe0cc;
+      --ink: #34281c;
+      --muted: #796856;
+      --line: #d7c4aa;
+      --line-strong: #b98f69;
+      --accent: #8a5a3d;
+      --accent-soft: #ead7c3;
+      --green: #6f8662;
+      --red: #9a5f4e;
+      --shadow: 0 18px 42px rgba(72, 54, 31, 0.12);
+      --font-title: KaiTi, STKaiti, "楷体", "华文楷体", serif;
+      --font-body: KaiTi, STKaiti, "楷体", "华文楷体", serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 16% 12%, rgba(185, 143, 105, 0.14), transparent 30%),
+        linear-gradient(180deg, #f8efe2, #efe1cf 48%, #e8d8c3);
+      font-family: var(--font-body);
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .app {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 28px 0 42px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      margin-bottom: 18px;
+      padding: 18px 20px;
+      background: rgba(251, 247, 239, 0.94);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .eyebrow {
+      margin: 0 0 7px;
+      color: var(--accent);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      margin-bottom: 7px;
+      font-family: var(--font-title);
+      font-size: 34px;
+      line-height: 1.16;
+    }
+
+    h2 {
+      margin-bottom: 8px;
+      font-size: 26px;
+      line-height: 1.2;
+    }
+
+    h3 {
+      margin-bottom: 6px;
+      font-size: 21px;
+      line-height: 1.25;
+    }
+
+    .subtle {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .buttonRow {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .primaryButton,
+    .ghostButton,
+    .moduleButton,
+    .backButton {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      padding: 0 14px;
+      color: var(--ink);
+      background: #fff8ee;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .primaryButton {
+      color: #fff8ee;
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .ghostButton:hover,
+    .moduleButton:hover,
+    .backButton:hover {
+      border-color: var(--line-strong);
+      background: #fffaf2;
+    }
+
+    .view {
+      display: none;
+    }
+
+    .view.active {
+      display: block;
+    }
+
+    .bookGrid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .bookCard {
+      display: grid;
+      gap: 12px;
+      min-height: 238px;
+      padding: 18px;
+      text-align: left;
+      color: var(--ink);
+      background: linear-gradient(180deg, rgba(255, 251, 244, 0.98), rgba(244, 234, 219, 0.96));
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 12px 28px rgba(72, 54, 31, 0.09);
+      transition:
+        transform 0.16s ease,
+        border-color 0.16s ease,
+        box-shadow 0.16s ease;
+    }
+
+    .bookCard:hover {
+      transform: translateY(-3px);
+      border-color: var(--line-strong);
+      box-shadow: 0 18px 36px rgba(72, 54, 31, 0.15);
+    }
+
+    .bookCardHead {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .genreTag,
+    .chip,
+    .pendingPill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 28px;
+      padding: 0 10px;
+      color: var(--muted);
+      background: #fff8ee;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .genreTag.fantasy {
+      color: #533325;
+      background: var(--accent-soft);
+      border-color: #c59f7c;
+    }
+
+    .pendingPill {
+      color: #7a4638;
+      background: #f7ece7;
+      border-color: #d6b6aa;
+    }
+
+    .bookTitle {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 24px;
+      line-height: 1.18;
+    }
+
+    .bookIntro {
+      min-height: 78px;
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.72;
+    }
+
+    .bookFooter {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .addPanel {
+      display: none;
+      margin-bottom: 16px;
+      padding: 16px;
+      background: rgba(251, 247, 239, 0.96);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .addPanel.active {
+      display: grid;
+      gap: 12px;
+    }
+
+    .formGrid {
+      display: grid;
+      grid-template-columns: 1fr 180px;
+      gap: 12px;
+    }
+
+    label {
+      display: grid;
+      gap: 7px;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    input,
+    select,
+    textarea {
+      width: 100%;
+      min-height: 42px;
+      padding: 8px 11px;
+      color: var(--ink);
+      background: #fffaf2;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+
+    textarea {
+      min-height: 86px;
+      resize: vertical;
+      line-height: 1.65;
+    }
+
+    .spanTwo {
+      grid-column: 1 / -1;
+    }
+
+    .bookShell {
+      display: grid;
+      gap: 16px;
+    }
+
+    .bookHeroMeta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .moduleGrid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .moduleButton {
+      display: grid;
+      justify-items: start;
+      gap: 7px;
+      min-height: 112px;
+      padding: 15px;
+      border-radius: 16px;
+      text-align: left;
+    }
+
+    .moduleButton.active {
+      color: #533325;
+      background: var(--accent-soft);
+      border-color: #c59f7c;
+    }
+
+    .moduleButton strong {
+      font-size: 20px;
+    }
+
+    .moduleButton small {
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .modulePreview {
+      min-height: 240px;
+      padding: 20px;
+      background: rgba(251, 247, 239, 0.96);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .previewList {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .emptyNote {
+      margin-top: 14px;
+      padding: 13px 14px;
+      color: var(--muted);
+      background: rgba(246, 239, 227, 0.74);
+      border: 1px dashed var(--line);
+      border-radius: 14px;
+      line-height: 1.65;
+    }
+
+    @media (max-width: 920px) {
+      .bookGrid,
+      .moduleGrid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .topbar,
+      .bookHero {
+        grid-template-columns: 1fr;
+        display: grid;
+      }
+
+      .buttonRow {
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .app {
+        width: min(100vw - 20px, 1180px);
+        padding-top: 14px;
+      }
+
+      .bookGrid,
+      .moduleGrid,
+      .formGrid {
+        grid-template-columns: 1fr;
+      }
+
+      h1 {
+        font-size: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">小说知识库</p>
+        <h1 id="pageTitle">小说书架</h1>
+        <p class="subtle" id="pageSubtitle">选择一本小说进入资料页，或手动新增一个演示项目。</p>
+      </div>
+      <div class="buttonRow">
+        <button class="ghostButton" id="backButton" type="button" hidden>返回小说页</button>
+        <button class="primaryButton" id="addToggle" type="button">手动添加小说</button>
+      </div>
+    </header>
+
+    <section class="addPanel" id="addPanel" aria-label="手动添加小说">
+      <div class="formGrid">
+        <label>
+          书名
+          <input id="bookNameInput" placeholder="例如：长夜星火" />
+        </label>
+        <label>
+          题材
+          <select id="bookGenreInput">
+            <option>玄幻</option>
+            <option>仙侠</option>
+            <option>都市</option>
+            <option>末日</option>
+            <option>奇幻</option>
+            <option>科幻</option>
+            <option>悬疑</option>
+            <option>其他</option>
+          </select>
+        </label>
+        <label class="spanTwo">
+          简介
+          <textarea id="bookIntroInput" placeholder="写一句这本书的核心设定或主线。"></textarea>
+        </label>
+      </div>
+      <div class="buttonRow">
+        <button class="ghostButton" id="cancelAdd" type="button">取消</button>
+        <button class="primaryButton" id="confirmAdd" type="button">生成小说卡片</button>
+      </div>
+    </section>
+
+    <main class="view active" id="shelfView">
+      <section class="bookGrid" id="bookGrid"></section>
+    </main>
+
+      <main class="view" id="bookView">
+      <section class="bookShell">
+        <section class="moduleGrid" id="moduleGrid" aria-label="资料模块"></section>
+
+        <article class="modulePreview">
+          <p class="eyebrow">模块预览</p>
+          <h2 id="moduleTitle">人物信息</h2>
+          <p class="subtle" id="moduleDescription">展示当前小说的人物资料卡、状态和关系。</p>
+          <div class="previewList" id="moduleChips"></div>
+          <div class="emptyNote">这是演示页壳层，点击模块只切换选中态和说明，不读取数据库。</div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const fantasyGenres = ["玄幻", "仙侠"];
+    const books = [
+      {
+        id: 1,
+        title: "万道归墟",
+        genre: "玄幻",
+        intro: "九天十地、三千道域与归墟之力交错，主角从顶级世家走向万界清算。",
+        updatedAt: "2026-06-04",
+      },
+      {
+        id: 2,
+        title: "雾城旧案",
+        genre: "悬疑",
+        intro: "一座常年起雾的旧城里，失踪案、家族秘闻与警方档案互相缠绕。",
+        updatedAt: "2026-06-03",
+      },
+      {
+        id: 3,
+        title: "废土黎明线",
+        genre: "末日",
+        intro: "幸存者营地在变异潮和旧时代遗迹之间重建秩序，主线围绕远征队展开。",
+        updatedAt: "2026-06-01",
+      },
+    ];
+
+    const modules = [
+      { id: "characters", title: "人物信息", desc: "人物资料卡、状态、关系、装备和阵营。" },
+      { id: "realms", title: "境界体系", desc: "大境界、小境界和对应说明，仅玄幻/仙侠显示。" },
+      { id: "factions", title: "势力结构", desc: "宗门、公司、城邦、军团、家族与关系。" },
+      { id: "maps", title: "世界图册", desc: "地图、区域、多边形范围、节点和尺度信息。" },
+      { id: "timeline", title: "故事时间线", desc: "按小说世界内真实时间排序的事件树。" },
+      { id: "chapters", title: "章节概览", desc: "按章节记录已讲述、揭示和补完的事实。" },
+      { id: "pending", title: "待审核", desc: "LLM 提交但尚未批准进入正式资料库的草稿。" },
+    ];
+
+    let activeBook = null;
+    let activeModule = "characters";
+
+    const shelfView = document.querySelector("#shelfView");
+    const bookView = document.querySelector("#bookView");
+    const bookGrid = document.querySelector("#bookGrid");
+    const moduleGrid = document.querySelector("#moduleGrid");
+    const pageTitle = document.querySelector("#pageTitle");
+    const pageSubtitle = document.querySelector("#pageSubtitle");
+    const backButton = document.querySelector("#backButton");
+    const addToggle = document.querySelector("#addToggle");
+    const addPanel = document.querySelector("#addPanel");
+
+    function isFantasy(book) {
+      return fantasyGenres.includes(book.genre);
+    }
+
+    function clearBookModeChips() {
+      document.querySelectorAll("[data-book-chip]").forEach((node) => node.remove());
+    }
+
+    function renderShelf() {
+      bookGrid.innerHTML = "";
+      books.forEach((book) => {
+        const card = document.createElement("button");
+        card.className = "bookCard";
+        card.type = "button";
+        card.innerHTML = `
+          <span class="bookCardHead">
+            <span>
+              <strong class="bookTitle">${book.title}</strong>
+              <span class="genreTag ${isFantasy(book) ? "fantasy" : ""}">${book.genre}</span>
+            </span>
+            <span class="chip">进入</span>
+          </span>
+          <p class="bookIntro">${book.intro || "这本小说还没有简介。"}</p>
+          <span class="bookFooter">
+            <span>更新：${book.updatedAt}</span>
+            <span>${isFantasy(book) ? "含境界体系" : "通用资料"}</span>
+          </span>
+        `;
+        card.addEventListener("click", () => openBook(book.id));
+        bookGrid.appendChild(card);
+      });
+    }
+
+    function openBook(id) {
+      activeBook = books.find((book) => book.id === id);
+      activeModule = "characters";
+      shelfView.classList.remove("active");
+      bookView.classList.add("active");
+      backButton.hidden = false;
+      addToggle.hidden = true;
+      addPanel.classList.remove("active");
+      pageTitle.textContent = activeBook.title;
+      pageSubtitle.textContent = activeBook.intro || "当前处于单本小说资料页，可进入各资料模块。";
+      renderBook();
+    }
+
+    function closeBook() {
+      activeBook = null;
+      clearBookModeChips();
+      bookView.classList.remove("active");
+      shelfView.classList.add("active");
+      backButton.hidden = true;
+      addToggle.hidden = false;
+      document.querySelector(".topbar .eyebrow").textContent = "小说知识库";
+      pageTitle.textContent = "小说书架";
+      pageSubtitle.textContent = "选择一本小说进入资料页，或手动新增一个演示项目。";
+      renderShelf();
+    }
+
+    function renderBook() {
+      if (!activeBook) return;
+      clearBookModeChips();
+      document.querySelector("#pageTitle").textContent = activeBook.title;
+      document.querySelector("#pageSubtitle").textContent = activeBook.intro || "当前处于单本小说资料页，可进入各资料模块。";
+      document.querySelector(".topbar .eyebrow").textContent = `${activeBook.genre} · 当前小说`;
+      document.querySelector(".topbar .buttonRow").insertAdjacentHTML("afterbegin", `
+        <span class="chip bookModeChip" data-book-chip="updated">更新：${activeBook.updatedAt}</span>
+        <span class="pendingPill bookModeChip" data-book-chip="realm">${isFantasy(activeBook) ? "玄幻/仙侠：显示境界体系" : "非玄幻：隐藏境界体系"}</span>
+      `);
+      renderModules();
+      renderModulePreview();
+    }
+
+    function renderModules() {
+      moduleGrid.innerHTML = "";
+      modules
+        .filter((module) => module.id !== "realms" || isFantasy(activeBook))
+        .forEach((module) => {
+          const button = document.createElement("button");
+          button.className = module.id === activeModule ? "moduleButton active" : "moduleButton";
+          button.type = "button";
+          button.innerHTML = `<strong>${module.title}</strong><small>${module.desc}</small>`;
+          button.addEventListener("click", () => {
+            activeModule = module.id;
+            renderModules();
+            renderModulePreview();
+          });
+          moduleGrid.appendChild(button);
+        });
+    }
+
+    function renderModulePreview() {
+      const module = modules.find((item) => item.id === activeModule) || modules[0];
+      document.querySelector("#moduleTitle").textContent = module.title;
+      document.querySelector("#moduleDescription").textContent = module.desc;
+      const chips = {
+        characters: ["角色卡", "存活状态", "人物关系"],
+        realms: ["大境界", "小境界", "说明表"],
+        factions: ["组织层级", "领袖", "敌友关系"],
+        maps: ["地图册", "区域", "节点"],
+        timeline: ["纪年", "事件", "叙述章节"],
+        chapters: ["章节摘要", "关键事实", "伏笔"],
+        pending: ["待确认", "界面预览", "JSON 编辑"],
+      }[module.id] || [];
+      document.querySelector("#moduleChips").innerHTML = chips.map((chip) => `<span class="chip">${chip}</span>`).join("");
+    }
+
+    addToggle.addEventListener("click", () => {
+      addPanel.classList.toggle("active");
+    });
+
+    document.querySelector("#cancelAdd").addEventListener("click", () => {
+      addPanel.classList.remove("active");
+    });
+
+    document.querySelector("#confirmAdd").addEventListener("click", () => {
+      const title = document.querySelector("#bookNameInput").value.trim();
+      const genre = document.querySelector("#bookGenreInput").value;
+      const intro = document.querySelector("#bookIntroInput").value.trim();
+      if (!title) {
+        document.querySelector("#bookNameInput").focus();
+        return;
+      }
+      books.unshift({
+        id: Date.now(),
+        title,
+        genre,
+        intro,
+        updatedAt: new Date().toISOString().slice(0, 10),
+      });
+      document.querySelector("#bookNameInput").value = "";
+      document.querySelector("#bookIntroInput").value = "";
+      addPanel.classList.remove("active");
+      renderShelf();
+    });
+
+    backButton.addEventListener("click", closeBook);
+    renderShelf();
+  </script>
+</body>
+</html>

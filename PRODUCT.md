@@ -63,7 +63,7 @@
 验收时必须核对：
 
 1. 运行中的后端 exe 路径来自当前项目的 `backend\dist`。
-2. 后端实际使用的数据库是 `C:\Users\zero\AppData\Roaming\local.novel.cockpit\novel.db`，除非本次明确设置了 `NOVEL_COCKPIT_DB`。
+2. 后端实际使用的数据库是 `%APPDATA%\local.novel.cockpit\novel.db`，除非本次明确设置了 `NOVEL_COCKPIT_DB`。
 3. `8765` 端口只能有一个监听进程。PyInstaller onefile 可能显示父子两个同名后端进程，但只能有一个实际监听 `8765`，且父子进程路径都必须来自当前项目 `backend\dist`。
 4. 如果源码和运行 exe 的行为不一致，优先重打包并重启，而不是继续调前端或误判为数据库问题。
 

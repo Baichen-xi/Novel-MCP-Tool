@@ -169,11 +169,22 @@ MAP_NODE_ALIASES = {
 
 TIMELINE_ALIASES = {
     "chapter": ("章节", "章"),
+    "era": ("纪年", "纪元", "时代", "时间段", "阶段"),
+    "year_label": ("year", "年份", "纪年时间", "故事时间", "发生时间", "时间"),
+    "time_note": ("timeNote", "time_note", "时间说明", "时间备注", "模糊时间", "具体时间"),
+    "sort_order": ("sort", "order", "时间序号", "排序", "时间顺序", "故事顺序", "顺序"),
+    "side": ("侧边", "左右", "显示侧", "位置"),
+    "event_type": ("type", "event_type", "事件类型", "类型"),
+    "title": ("标题", "事件标题", "名称"),
+    "summary": ("说明", "事件说明", "摘要", "事件经过", "内容"),
+    "narrative": ("叙述章节", "来源章节", "首次揭示", "叙述", "读者得知"),
     "event": ("事件", "内容"),
-    "date_label": ("时间", "日期"),
-    "involved_characters": ("相关角色", "参与角色"),
+    "date_label": ("日期",),
+    "involved_characters": ("characters", "相关角色", "参与角色", "涉及人物", "人物"),
+    "factions": ("相关势力", "涉及势力", "势力"),
     "location": ("地点", "位置"),
     "consequences": ("后果", "影响"),
+    "hooks": ("伏笔", "伏笔变化"),
     "tags": ("标签",),
 }
 
@@ -289,6 +300,12 @@ class ProjectCreate(BaseModel):
     title: str = "未命名作品"
     genre: str = ""
     premise: str = ""
+
+
+class ProjectUpdate(BaseModel):
+    title: str | None = None
+    genre: str | None = None
+    premise: str | None = None
 
 
 class ProjectDeleteProposal(BaseModel):

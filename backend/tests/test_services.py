@@ -12,6 +12,7 @@ from app.services import (
     create_faction,
     create_project,
     delete_character,
+    delete_chapter_summary,
     delete_project,
     delete_map_image,
     delete_map_node,
@@ -23,6 +24,7 @@ from app.services import (
     get_context_pack,
     get_full_chapter,
     get_faction,
+    get_schema,
     list_factions,
     get_power_system,
     get_world_profile,
@@ -39,9 +41,13 @@ from app.services import (
     propose_delete_project,
     propose_delete_faction,
     propose_faction_update,
+    propose_chapter_overview_update,
+    propose_map_node_update,
     switch_project,
     propose_character_update,
+    propose_character_create,
     propose_power_system_update,
+    propose_timeline_event_create,
     propose_world_update,
     propose_world_profile_update,
     rollback_change,
@@ -50,8 +56,10 @@ from app.services import (
     update_lore_entry_direct,
     update_map_image_direct,
     update_map_node_direct,
+    update_project,
     update_power_system_direct,
     update_world_profile_direct,
+    validate_payload,
     world_entries_to_patch,
 )
 
@@ -262,13 +270,56 @@ def test_safe_character_update_goes_pending_for_core_fields():
     assert len(list_pending_changes()) == 1
 
 
-def test_light_character_update_applies_immediately():
+def test_llm_character_update_goes_pending_even_for_light_fields():
     init_project(ProjectInit(characters=[{"name": "林夜", "role": "男主", "location": "酒馆"}]))
     result = propose_character_update("林夜", {"location": "黑市", "emotional_state": "紧张"}, "场景移动")
-    assert result["mode"] == "applied"
+    assert result["mode"] == "pending"
+    assert result["change"]["module_type"] == "characters"
+    character = get_character("林夜")
+    assert character["location"] == "酒馆"
+    approve_change(result["change"]["id"])
     character = get_character("林夜")
     assert character["location"] == "黑市"
     assert character["emotional_state"] == "紧张"
+
+
+def test_schema_and_validation_reject_bad_payload_without_pending_change():
+    init_project(ProjectInit(title="校验项目"))
+    schema = get_schema("map_node")
+    assert schema["valid_kind"] is True
+    assert "x" in schema["schema"]["必填"]
+
+    invalid = propose_map_node_update("东玄道域", "黑水城", {"说明": "缺少坐标"}, "坐标缺失")
+    assert invalid["mode"] == "invalid"
+    assert "x" in "；".join(invalid["validation"]["errors"])
+    assert list_pending_changes() == []
+
+    direct_validation = validate_payload("timeline_event", {"事件标题": "旧事重提", "事件说明": "缺少时间和排序"})
+    assert direct_validation["valid"] is False
+    assert any("故事时间" in item for item in direct_validation["errors"])
+
+
+def test_dedicated_proposals_preview_and_approve_into_right_tables():
+    init_project(ProjectInit(title="专用工具项目"))
+    character = propose_character_create({"姓名": "苏璃", "角色身份": "女主", "性格": "清冷"}, "新增人物")
+    assert character["mode"] == "pending"
+    assert character["change"]["module_type"] == "characters"
+    assert character["change"]["preview"]["name"] == "苏璃"
+    approve_change(character["change"]["id"])
+    assert get_character("苏璃")["personality"] == "清冷"
+
+    chapter = propose_chapter_overview_update(3, {"标题": "秘境开启", "摘要": "龙渊秘境开启。", "事实": ["秘境入口出现"]}, "章节概览")
+    assert chapter["change"]["module_type"] == "chapters"
+    approve_change(chapter["change"]["id"])
+    assert list_chapter_summaries()[0]["chapter"] == 3
+
+    timeline = propose_timeline_event_create(
+        {"事件标题": "龙渊秘境开启", "故事时间": "新星纪元 1032 年 夏", "排序值": 1032.6, "事件说明": "各宗弟子进入秘境。"},
+        "时间线",
+    )
+    assert timeline["change"]["module_type"] == "timeline"
+    approve_change(timeline["change"]["id"])
+    assert get_context_pack(ContextRequest(scene_goal="检查时间线"))["timeline"][0]["title"] == "龙渊秘境开启"
 
 
 def test_approve_pending_change_updates_character():
@@ -550,16 +601,93 @@ def test_approved_world_change_applies_map_lore_timeline_and_rules():
     assert any(event["event"] == "林夜抵达黑水城" for event in pack["timeline"])
 
 
-def test_add_chapter_summary_creates_timeline_signal():
+def test_timeline_events_preserve_story_chronology_fields():
+    init_project(
+        ProjectInit(
+            title="时间树项目",
+            timeline=[
+                {
+                    "era": "新星纪元",
+                    "year_label": "新星纪元 1032 年 春",
+                    "time_note": "天元宗收徒日，午后",
+                    "sort_order": 1032.2,
+                    "side": "right",
+                    "event_type": "正序事件",
+                    "title": "林玄登上问心阶",
+                    "summary": "林玄在问心阶停步。",
+                    "narrative": "第 1 章正序讲述",
+                    "chapter": 1,
+                    "location": "天元宗山门",
+                    "involved_characters": ["林玄", "苏璃"],
+                    "factions": ["天元宗"],
+                    "consequences": "林玄获得入门资格。",
+                    "hooks": ["问心阶异象"],
+                },
+                {
+                    "era": "前星纪",
+                    "year": "前星纪末年",
+                    "timeNote": "距主线约一千年",
+                    "sort": -1000,
+                    "side": "left",
+                    "type": "前史",
+                    "title": "龙门沉入虚空海",
+                    "summary": "上古龙门沉入虚空海。",
+                    "characters": ["龙门守将"],
+                    "factions": ["古龙族"],
+                    "hooks": ["虚空海龙门"],
+                },
+            ],
+        )
+    )
+
+    timeline = get_context_pack(ContextRequest(scene_goal="检查时间树"))["timeline"]
+    assert timeline[0]["title"] == "龙门沉入虚空海"
+    assert timeline[0]["year_label"] == "前星纪末年"
+    assert timeline[0]["time_note"] == "距主线约一千年"
+    assert timeline[0]["event_type"] == "前史"
+    assert timeline[0]["involved_characters"] == ["龙门守将"]
+    assert timeline[0]["factions"] == ["古龙族"]
+    assert timeline[0]["hooks"] == ["虚空海龙门"]
+    assert timeline[1]["title"] == "林玄登上问心阶"
+    assert timeline[1]["side"] == "right"
+
+    exported = export_project()
+    init_project(ProjectInit(title="空项目"))
+    imported = import_project(exported)
+    assert imported["timeline"][0]["title"] == "龙门沉入虚空海"
+    assert imported["timeline"][1]["year_label"] == "新星纪元 1032 年 春"
+
+
+def test_add_chapter_summary_does_not_create_timeline_event():
     init_project(ProjectInit(title="青霜纪"))
     result = add_chapter_summary(
         ChapterSummaryIn(chapter=3, summary="林夜得到玉佩。", facts=["玉佩会发光"], hooks=["玉佩来历"])
     )
     assert result["summary"]["chapter"] == 3
-    assert result["timeline"][-1]["chapter"] == 3
+    assert result["timeline"] == []
     summaries = list_chapter_summaries()
     assert summaries[0]["facts"] == ["玉佩会发光"]
     assert summaries[0]["hooks"] == ["玉佩来历"]
+
+
+def test_chapter_summary_update_keeps_timeline_empty():
+    init_project(ProjectInit(title="章节编辑项目"))
+    add_chapter_summary(ChapterSummaryIn(chapter=2, title="旧标题", summary="旧摘要", hooks=["旧伏笔"]))
+    result = add_chapter_summary(ChapterSummaryIn(chapter=2, title="新标题", summary="新摘要", hooks=["新伏笔"]))
+
+    assert result["summary"]["title"] == "新标题"
+    assert result["timeline"] == []
+
+
+def test_delete_chapter_summary_removes_only_auto_summary_signal():
+    init_project(ProjectInit(title="章节删除项目", timeline=[{"chapter": 4, "title": "普通章节事件", "summary": "普通事件"}]))
+    add_chapter_summary(ChapterSummaryIn(chapter=4, title="章节摘要", summary="摘要内容", hooks=["摘要伏笔"]))
+
+    result = delete_chapter_summary(4)
+    assert result["deleted"] == 1
+    assert not list_chapter_summaries()
+    chapter_events = [event for event in get_context_pack(ContextRequest(scene_goal="检查"))["timeline"] if event["chapter"] == 4]
+    assert [event["title"] for event in chapter_events] == ["普通章节事件"]
 
 
 def test_full_chapter_import_is_not_added_to_context_pack_memory():
@@ -612,7 +740,9 @@ def test_faction_crud_pending_and_export_import_roundtrip():
     assert list_factions()[0]["leader"] == "林夜"
 
     light = propose_faction_update("青霜盟", {"summary": "主角同盟扩张中。"}, "补充简介")
-    assert light["mode"] == "applied"
+    assert light["mode"] == "pending"
+    assert light["change"]["module_type"] == "factions"
+    approve_change(light["change"]["id"])
     assert get_faction("青霜盟")["summary"] == "主角同盟扩张中。"
 
     pending = propose_faction_update("青霜盟", {"leader": "苏璃"}, "修改领袖")
@@ -788,6 +918,17 @@ def test_delete_last_project_creates_fallback_project():
     assert dashboard["project"]["is_active"] == 1
     assert dashboard["projects"] == [dashboard["project"]]
     assert dashboard["characters"] == []
+
+
+def test_update_project_edits_basic_book_fields():
+    project = create_project("旧书名", "玄幻", "旧简介")
+
+    updated = update_project(project["id"], {"title": "新书名", "genre": "仙侠", "premise": "新简介"})
+
+    assert updated["title"] == "新书名"
+    assert updated["genre"] == "仙侠"
+    assert updated["premise"] == "新简介"
+    assert updated["is_active"] == 1
 
 
 def test_delete_character_is_project_scoped_and_pending_delete_requires_approval():

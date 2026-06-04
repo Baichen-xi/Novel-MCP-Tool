@@ -16,6 +16,7 @@ from .services import (
     get_context_pack as get_context_pack_service,
     get_project,
     get_power_system as get_power_system_service,
+    get_schema as get_schema_service,
     get_timeline as get_timeline_service,
     get_world_state as get_world_state_service,
     get_world_profile as get_world_profile_service,
@@ -26,14 +27,30 @@ from .services import (
     list_pending_changes,
     prepare_project_context,
     propose_character_update as propose_character_update_service,
+    propose_character_create as propose_character_create_service,
     propose_delete_character as propose_delete_character_service,
     propose_delete_project as propose_delete_project_service,
     propose_delete_faction as propose_delete_faction_service,
+    propose_chapter_overview_update as propose_chapter_overview_update_service,
     propose_faction_update as propose_faction_update_service,
+    propose_faction_create as propose_faction_create_service,
+    propose_map_create as propose_map_create_service,
+    propose_map_delete as propose_map_delete_service,
+    propose_map_node_delete as propose_map_node_delete_service,
+    propose_map_node_update as propose_map_node_update_service,
+    propose_map_region_update as propose_map_region_update_service,
+    propose_map_update as propose_map_update_service,
+    propose_power_realm_create as propose_power_realm_create_service,
+    propose_power_realm_delete as propose_power_realm_delete_service,
+    propose_power_realm_update as propose_power_realm_update_service,
     propose_power_system_update as propose_power_system_update_service,
+    propose_timeline_event_create as propose_timeline_event_create_service,
+    propose_timeline_event_delete as propose_timeline_event_delete_service,
     propose_world_profile_update as propose_world_profile_update_service,
+    propose_world_summary_update as propose_world_summary_update_service,
     propose_world_update as propose_world_update_service,
     switch_to_project,
+    validate_payload as validate_payload_service,
     world_entries_to_patch,
 )
 
@@ -64,7 +81,26 @@ PAYLOAD_TEMPLATES: dict[str, Any] = {
         "factions": [],
         "lore_entries": [],
         "map_nodes": [],
-        "timeline": [],
+        "timeline": [
+            {
+                "era": "新星纪元",
+                "year_label": "新星纪元 1032 年 春",
+                "time_note": "天元宗收徒日，午后",
+                "sort_order": 1032.2,
+                "side": "right",
+                "event_type": "正序事件",
+                "title": "林玄登上问心阶",
+                "summary": "林玄在问心阶停步，神魂异象短暂显现，被外门长老注意。",
+                "narrative": "第 1 章正序讲述",
+                "chapter": 1,
+                "location": "天元宗山门",
+                "involved_characters": ["林玄", "苏璃"],
+                "factions": ["天元宗"],
+                "consequences": "林玄获得入门资格，苏璃第一次记住他的名字。",
+                "hooks": ["问心阶为何回应林玄神魂"],
+                "tags": ["入门", "主线"],
+            }
+        ],
     },
     "character": {
         "name": "角色名",
@@ -176,6 +212,18 @@ def get_payload_templates(kind: str | None = None) -> dict[str, Any]:
 
 
 @mcp.tool()
+def get_schema(kind: str | None = None) -> dict[str, Any]:
+    """获取中文填表结构说明。LLM 写入任何资料前，应先调用本工具确认字段、必填项和示例。"""
+    return get_schema_service(kind)
+
+
+@mcp.tool()
+def validate_payload(kind: str, payload: dict[str, Any]) -> dict[str, Any]:
+    """校验某类资料 payload。校验失败不会写入数据库，会返回错误字段和推荐结构。"""
+    return validate_payload_service(kind, payload)
+
+
+@mcp.tool()
 def list_projects() -> dict[str, Any]:
     """列出所有小说项目，并返回当前激活项目。"""
     return {"active_project": get_project(), "projects": list_projects_service()}
@@ -201,10 +249,44 @@ def propose_delete_project(project_title: str | None = None, project_id: int | N
 
 @mcp.tool()
 def init_project(payload: dict[str, Any], project_title: str | None = None, project_id: int | None = None) -> dict[str, Any]:
-    """初始化小说项目，写入作品、角色、世界书、地图和时间线。"""
+    """初始化小说项目。只直接创建/切换空壳项目，具体资料拆成待审核草稿。"""
     validated = ProjectInit.model_validate(payload)
-    prepare_project_context(project_id, project_title or validated.title, create_missing=True, genre=validated.genre, premise=validated.premise)
-    return init_project_service(validated)
+    project = prepare_project_context(project_id, project_title or validated.title, create_missing=True, genre=validated.genre, premise=validated.premise)
+    proposals: list[dict[str, Any]] = []
+    if validated.world_profile:
+        summary = validated.world_profile.get("summary") or validated.world_profile
+        proposals.append(propose_world_summary_update_service(summary, "初始化项目：世界设定", "llm"))
+    for tier in (validated.power_system.get("tiers") or []):
+        proposals.append(propose_power_realm_create_service(tier, "初始化项目：境界体系", "llm"))
+    if validated.power_system.get("summary"):
+        proposals.append(propose_power_system_update_service({"summary": validated.power_system.get("summary")}, "初始化项目：境界总览", "llm"))
+    for character in validated.characters:
+        proposals.append(propose_character_create_service(character, "初始化项目：人物资料", "llm"))
+    for faction in validated.factions:
+        proposals.append(propose_faction_create_service(faction, "初始化项目：势力资料", "llm"))
+    for node in validated.map_nodes:
+        shape = str(node.get("shape") or node.get("显示方式") or "").strip().lower()
+        name = str(node.get("name") or node.get("名称") or node.get("节点名") or "未命名地点").strip()
+        if shape in {"polygon", "region", "area", "区域", "范围", "多边形"} or node.get("polygon_points") or node.get("顶点"):
+            proposals.append(propose_map_region_update_service("", name, node, "初始化项目：地图区域", "llm"))
+        else:
+            proposals.append(propose_map_node_update_service("", name, node, "初始化项目：地图节点", "llm"))
+    for event in validated.timeline:
+        proposals.append(propose_timeline_event_create_service(event, "初始化项目：故事时间线", "llm"))
+    if validated.lore_entries or validated.rules:
+        proposals.append(
+            propose_world_update_service(
+                {"rules": validated.rules, "lore_entries": validated.lore_entries},
+                "初始化项目：世界书与规则",
+                "llm",
+            )
+        )
+    return {
+        "mode": "pending_init",
+        "project": project,
+        "message": "已创建/切换空壳项目；具体资料已进入待审核，需在前端批准后才会进入正式库。",
+        "proposals": proposals,
+    }
 
 
 @mcp.tool()
@@ -233,6 +315,18 @@ def get_character(name: str, project_title: str | None = None, project_id: int |
     """查询角色完整状态。"""
     prepare_project_context(project_id, project_title)
     return get_character_service(name)
+
+
+@mcp.tool()
+def propose_character_create(
+    payload: dict[str, Any],
+    project_title: str | None = None,
+    project_id: int | None = None,
+    reason: str = "",
+) -> dict[str, Any]:
+    """提交新增人物资料。不会直接入库，校验通过后进入人物页待审核预览。"""
+    prepare_project_context(project_id, project_title, create_missing=bool(project_title))
+    return propose_character_create_service(payload, reason, "llm")
 
 
 @mcp.tool()
@@ -266,6 +360,18 @@ def get_faction(name: str, project_title: str | None = None, project_id: int | N
     """读取单个势力完整详情。"""
     prepare_project_context(project_id, project_title)
     return get_faction_service(name)
+
+
+@mcp.tool()
+def propose_faction_create(
+    payload: dict[str, Any],
+    project_title: str | None = None,
+    project_id: int | None = None,
+    reason: str = "",
+) -> dict[str, Any]:
+    """提交新增势力资料。不会直接入库，校验通过后进入势力页待审核预览。"""
+    prepare_project_context(project_id, project_title, create_missing=bool(project_title))
+    return propose_faction_create_service(payload, reason, "llm")
 
 
 @mcp.tool()
@@ -319,6 +425,18 @@ def propose_world_profile_update(
 
 
 @mcp.tool()
+def propose_world_summary_update(
+    summary: str,
+    reason: str = "",
+    project_title: str | None = None,
+    project_id: int | None = None,
+) -> dict[str, Any]:
+    """提交单段世界设定。不会直接入库，校验通过后进入世界设定待审核预览。"""
+    prepare_project_context(project_id, project_title, create_missing=bool(project_title))
+    return propose_world_summary_update_service(summary, reason, "llm")
+
+
+@mcp.tool()
 def get_power_system(project_title: str | None = None, project_id: int | None = None) -> dict[str, Any]:
     """读取项目级境界 / 力量体系。"""
     prepare_project_context(project_id, project_title)
@@ -339,6 +457,43 @@ def propose_power_system_update(
     """提交境界 / 力量体系变更。核心设定会进入待确认队列。"""
     prepare_project_context(project_id, project_title, create_missing=bool(project_title))
     return propose_power_system_update_service(patch, reason, "llm")
+
+
+@mcp.tool()
+def propose_power_realm_create(
+    payload: dict[str, Any],
+    project_title: str | None = None,
+    project_id: int | None = None,
+    reason: str = "",
+) -> dict[str, Any]:
+    """提交新增大境界，可携带小境界列表。不会直接入库，进入境界页待审核预览。"""
+    prepare_project_context(project_id, project_title, create_missing=bool(project_title))
+    return propose_power_realm_create_service(payload, reason, "llm")
+
+
+@mcp.tool()
+def propose_power_realm_update(
+    name: str,
+    patch: dict[str, Any],
+    reason: str = "",
+    project_title: str | None = None,
+    project_id: int | None = None,
+) -> dict[str, Any]:
+    """提交修改大境界。不会直接入库，进入境界页待审核预览。"""
+    prepare_project_context(project_id, project_title, create_missing=bool(project_title))
+    return propose_power_realm_update_service(name, patch, reason, "llm")
+
+
+@mcp.tool()
+def propose_power_realm_delete(
+    name: str,
+    reason: str = "",
+    project_title: str | None = None,
+    project_id: int | None = None,
+) -> dict[str, Any]:
+    """提交删除大境界请求。不会直接删除，需作者批准。"""
+    prepare_project_context(project_id, project_title)
+    return propose_power_realm_delete_service(name, reason, "llm")
 
 
 @mcp.tool()
@@ -367,10 +522,111 @@ def propose_world_update(
 
 
 @mcp.tool()
+def propose_map_create(
+    payload: dict[str, Any],
+    reason: str = "",
+    project_title: str | None = None,
+    project_id: int | None = None,
+) -> dict[str, Any]:
+    """提交新增地图册卡片。不会直接入库，进入世界图册待审核预览。"""
+    prepare_project_context(project_id, project_title, create_missing=bool(project_title))
+    return propose_map_create_service(payload, reason, "llm")
+
+
+@mcp.tool()
+def propose_map_update(
+    map_id_or_name: str,
+    patch: dict[str, Any],
+    reason: str = "",
+    project_title: str | None = None,
+    project_id: int | None = None,
+) -> dict[str, Any]:
+    """提交修改地图册卡片。map_id_or_name 可传地图 ID 或地图名，不会直接入库。"""
+    prepare_project_context(project_id, project_title, create_missing=bool(project_title))
+    return propose_map_update_service(map_id_or_name, patch, reason, "llm")
+
+
+@mcp.tool()
+def propose_map_delete(
+    map_id_or_name: str,
+    reason: str = "",
+    project_title: str | None = None,
+    project_id: int | None = None,
+) -> dict[str, Any]:
+    """提交删除整张地图请求。批准后删除地图、节点和区域。"""
+    prepare_project_context(project_id, project_title)
+    return propose_map_delete_service(map_id_or_name, reason, "llm")
+
+
+@mcp.tool()
+def propose_map_node_update(
+    map_id_or_name: str,
+    node_name: str,
+    patch: dict[str, Any],
+    reason: str = "",
+    project_title: str | None = None,
+    project_id: int | None = None,
+) -> dict[str, Any]:
+    """提交地图点位新增或修改。必须提供 x/y 0-100 百分比坐标，否则返回校验错误。"""
+    prepare_project_context(project_id, project_title, create_missing=bool(project_title))
+    return propose_map_node_update_service(map_id_or_name, node_name, patch, reason, "llm")
+
+
+@mcp.tool()
+def propose_map_region_update(
+    map_id_or_name: str,
+    region_name: str,
+    patch: dict[str, Any],
+    reason: str = "",
+    project_title: str | None = None,
+    project_id: int | None = None,
+) -> dict[str, Any]:
+    """提交地图区域新增或修改。必须提供至少三个 polygon_points/顶点，否则返回校验错误。"""
+    prepare_project_context(project_id, project_title, create_missing=bool(project_title))
+    return propose_map_region_update_service(map_id_or_name, region_name, patch, reason, "llm")
+
+
+@mcp.tool()
+def propose_map_node_delete(
+    node_name: str,
+    reason: str = "",
+    project_title: str | None = None,
+    project_id: int | None = None,
+) -> dict[str, Any]:
+    """提交删除地图节点或区域请求。不会直接删除，需作者批准。"""
+    prepare_project_context(project_id, project_title)
+    return propose_map_node_delete_service(node_name, reason, "llm")
+
+
+@mcp.tool()
 def get_timeline(chapter_range: str | None = None, project_title: str | None = None, project_id: int | None = None) -> list[dict[str, Any]]:
     """查询时间线。chapter_range 格式示例：1-20。"""
     prepare_project_context(project_id, project_title)
     return get_timeline_service(chapter_range)
+
+
+@mcp.tool()
+def propose_timeline_event_create(
+    payload: dict[str, Any],
+    reason: str = "",
+    project_title: str | None = None,
+    project_id: int | None = None,
+) -> dict[str, Any]:
+    """提交故事时间线事件。只进入故事时间线待审核，不会和章节概览自动联动。"""
+    prepare_project_context(project_id, project_title, create_missing=bool(project_title))
+    return propose_timeline_event_create_service(payload, reason, "llm")
+
+
+@mcp.tool()
+def propose_timeline_event_delete(
+    event_id: int,
+    reason: str = "",
+    project_title: str | None = None,
+    project_id: int | None = None,
+) -> dict[str, Any]:
+    """提交删除故事时间线事件请求。不会直接删除，需作者批准。"""
+    prepare_project_context(project_id, project_title)
+    return propose_timeline_event_delete_service(event_id, reason, "llm")
 
 
 @mcp.tool()
@@ -383,11 +639,22 @@ def add_chapter_summary(
     project_title: str | None = None,
     project_id: int | None = None,
 ) -> dict[str, Any]:
-    """保存章节摘要、新增事实和伏笔。章节结束后调用。"""
+    """提交章节概览。LLM 调用时不会直接保存，校验通过后进入章节概览待审核。"""
     prepare_project_context(project_id, project_title, create_missing=bool(project_title))
-    return add_summary_service(
-        ChapterSummaryIn(chapter=chapter, title=title, summary=summary, facts=facts or [], hooks=hooks or [])
-    )
+    return propose_chapter_overview_update_service(chapter, {"title": title, "summary": summary, "facts": facts or [], "hooks": hooks or []}, "LLM 提交章节概览", "llm")
+
+
+@mcp.tool()
+def propose_chapter_overview_update(
+    chapter: int,
+    payload: dict[str, Any],
+    reason: str = "",
+    project_title: str | None = None,
+    project_id: int | None = None,
+) -> dict[str, Any]:
+    """提交章节概览新增或修改。不会直接保存，进入章节概览待审核。"""
+    prepare_project_context(project_id, project_title, create_missing=bool(project_title))
+    return propose_chapter_overview_update_service(chapter, payload, reason, "llm")
 
 
 @mcp.tool()

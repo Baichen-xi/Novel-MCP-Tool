@@ -8,6 +8,7 @@ from fastmcp import Client
 
 from app.db import get_connection, init_db
 from app.mcp_server import mcp
+from app.services import approve_change
 
 
 @pytest.fixture
@@ -65,20 +66,37 @@ async def test_mcp_tools_are_callable_end_to_end():
             "create_project",
             "switch_project",
             "propose_delete_project",
+            "get_schema",
+            "validate_payload",
             "healthcheck",
             "get_context_pack",
             "get_world_profile",
+            "propose_world_summary_update",
             "propose_world_profile_update",
             "get_power_system",
             "propose_power_system_update",
+            "propose_power_realm_create",
+            "propose_power_realm_update",
+            "propose_power_realm_delete",
             "get_character",
+            "propose_character_create",
             "propose_character_update",
             "propose_delete_character",
             "get_factions",
             "get_faction",
+            "propose_faction_create",
             "propose_faction_update",
             "propose_delete_faction",
+            "propose_map_create",
+            "propose_map_update",
+            "propose_map_delete",
+            "propose_map_node_update",
+            "propose_map_region_update",
+            "propose_map_node_delete",
+            "propose_timeline_event_create",
+            "propose_timeline_event_delete",
             "add_chapter_summary",
+            "propose_chapter_overview_update",
             "list_full_chapters",
             "get_full_chapter",
             "save_full_chapter",
@@ -105,6 +123,16 @@ async def test_mcp_tools_are_callable_end_to_end():
             )
         )
         assert dashboard["project"]["title"] == "青霜纪"
+        assert dashboard["mode"] == "pending_init"
+
+        character = unwrap(await client.call_tool("get_character", {"name": "林夜"}))
+        assert character is None
+
+        pending_changes = unwrap(await client.call_tool("get_pending_changes", {}))
+        assert any(change["module_type"] == "characters" and change["target_name"] == "林夜" for change in pending_changes)
+        assert any(change["module_type"] == "factions" and change["target_name"] == "天元宗" for change in pending_changes)
+        for change in list(pending_changes):
+            approve_change(change["id"])
 
         character = unwrap(await client.call_tool("get_character", {"name": "林夜"}))
         assert character["age"] == "18"
@@ -139,7 +167,8 @@ async def test_mcp_tools_are_callable_end_to_end():
                 },
             )
         )
-        assert summary["summary"]["chapter"] == 1
+        assert summary["mode"] == "pending"
+        approve_change(summary["change"]["id"])
 
         context = unwrap(await client.call_tool("get_context_pack", {"scene_goal": "林夜调查天元宗", "keywords": ["天元宗"]}))
         assert context["characters"][0]["name"] == "林夜"
@@ -183,6 +212,10 @@ async def test_mcp_tools_are_callable_end_to_end():
             )
         )
         assert routed["project"]["title"] == "MCP新书"
+        routed_pending = unwrap(await client.call_tool("get_pending_changes", {}))
+        assert any(change["target_name"] == "新主角" for change in routed_pending)
+        for change in list(routed_pending):
+            approve_change(change["id"])
         context = unwrap(await client.call_tool("get_context_pack", {"scene_goal": "新主角登场", "project_title": "MCP新书"}))
         assert context["characters"][0]["name"] == "新主角"
 

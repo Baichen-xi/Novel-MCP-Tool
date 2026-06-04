@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import init_db
-from .schemas import ChapterSummaryIn, CharacterDeleteProposal, CharacterUpdate, ContextRequest, DirectCharacterUpdate, FactionDeleteProposal, FactionIn, FactionUpdate, FullChapterIn, LoreEntryUpdate, MapImageIn, MapImageUpdate, MapNodeCreate, MapNodeUpdate, ProjectCreate, ProjectDeleteProposal, ProjectInit, ResolveChangeIn, WorldUpdate
+from .schemas import ChapterSummaryIn, CharacterDeleteProposal, CharacterUpdate, ContextRequest, DirectCharacterUpdate, FactionDeleteProposal, FactionIn, FactionUpdate, FullChapterIn, LoreEntryUpdate, MapImageIn, MapImageUpdate, MapNodeCreate, MapNodeUpdate, ProjectCreate, ProjectDeleteProposal, ProjectInit, ProjectUpdate, ResolveChangeIn, WorldUpdate
 from .services import (
     add_chapter_summary,
     approve_change,
@@ -12,6 +12,7 @@ from .services import (
     create_project,
     create_faction,
     delete_character,
+    delete_chapter_summary,
     delete_project,
     delete_map_image,
     delete_map_node,
@@ -24,6 +25,7 @@ from .services import (
     get_full_chapter,
     get_dashboard,
     get_faction,
+    get_schema,
     list_factions,
     get_timeline,
     get_world_state,
@@ -54,8 +56,10 @@ from .services import (
     update_lore_entry_direct,
     update_map_image_direct,
     update_map_node_direct,
+    update_project,
     update_world_profile_direct,
     update_power_system_direct,
+    validate_payload,
 )
 
 app = FastAPI(title="Novel Cockpit", version="0.1.0")
@@ -84,6 +88,16 @@ def dashboard() -> dict:
     return get_dashboard()
 
 
+@app.get("/api/schema")
+def schema(kind: str | None = None) -> dict:
+    return get_schema(kind)
+
+
+@app.post("/api/schema/{kind}/validate")
+def schema_validate(kind: str, payload: dict) -> dict:
+    return validate_payload(kind, payload)
+
+
 @app.get("/api/projects")
 def projects() -> list[dict]:
     return list_projects()
@@ -92,6 +106,16 @@ def projects() -> list[dict]:
 @app.post("/api/projects")
 def project_create(payload: ProjectCreate) -> dict:
     return {"project": create_project(payload.title, payload.genre, payload.premise), "dashboard": get_dashboard()}
+
+
+@app.patch("/api/projects/{project_id}")
+def project_update(project_id: int, payload: ProjectUpdate) -> dict:
+    try:
+        project = update_project(project_id, payload.model_dump(exclude_unset=True))
+        return {"project": project, "dashboard": get_dashboard()}
+    except ValueError as exc:
+        status_code = 400 if "empty" in str(exc).lower() else 404
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
 
 
 @app.post("/api/projects/{project_id}/switch")
@@ -346,6 +370,11 @@ def chapter_summary(payload: ChapterSummaryIn) -> dict:
 @app.get("/api/chapters/summaries")
 def chapter_summaries() -> list[dict]:
     return list_chapter_summaries()
+
+
+@app.delete("/api/chapters/summary/{chapter}")
+def chapter_summary_delete(chapter: int) -> dict:
+    return delete_chapter_summary(chapter)
 
 
 @app.post("/api/chapters/full")
